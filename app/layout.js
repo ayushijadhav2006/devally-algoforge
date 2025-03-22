@@ -8,6 +8,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import WebProvider from "@/providers/WebProvider";
 import { LanguageProvider } from "@/context/LanguageContext";
 import "leaflet/dist/leaflet.css";
+// import { ThirdwebProvider } from "@thirdweb-dev/react";
 
 export const metadata = {
   title: "SMILE-SHARE",
@@ -20,6 +21,7 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <head />
       <body className={cn("min-h-screen bg-background font-sans antialiased")}>
+        {/* <ThirdwebProvider activeChain="sepolia"> */}
         <WebProvider>
           <LanguageProvider>
             <AuthProvider>
@@ -29,6 +31,7 @@ export default function RootLayout({ children }) {
             </AuthProvider>
           </LanguageProvider>
         </WebProvider>
+        {/* </ThirdwebProvider> */}
         <Toaster />
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"

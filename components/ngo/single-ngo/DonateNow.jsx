@@ -24,7 +24,8 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import { useReadContract } from "wagmi";
-import { formatEther, parseUnits } from "ethers";
+import { ethers } from "ethers";
+import { formatEther, parseUnits } from "ethers/lib/utils";
 import { toast } from "react-hot-toast";
 import { currentTimestamp } from "@/constants";
 
@@ -430,23 +431,33 @@ const DonateNow = ({ ngoData }) => {
         <div className="max-w-2xl ">
           <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
             <div className="border-b pb-4">
-              <h2 className="text-2xl font-semibold text-gray-800">Make a Donation</h2>
-              <p className="text-gray-600 mt-1">Your support makes a difference</p>
+              <h2 className="text-2xl font-semibold text-gray-800">
+                Make a Donation
+              </h2>
+              <p className="text-gray-600 mt-1">
+                Your support makes a difference
+              </p>
             </div>
 
             {!userType || userType !== "user" ? (
               <div className="text-center py-8">
-                <p className="text-lg text-gray-600">Please login with your user account to make a donation.</p>
+                <p className="text-lg text-gray-600">
+                  Please login with your user account to make a donation.
+                </p>
                 <Button className="mt-4">Login to Donate</Button>
               </div>
             ) : (
               <form className="space-y-6">
                 {/* Personal Information Section */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-medium text-gray-700">Personal Information</h3>
+                  <h3 className="text-lg font-medium text-gray-700">
+                    Personal Information
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="name" className="text-gray-700">Full Name</Label>
+                      <Label htmlFor="name" className="text-gray-700">
+                        Full Name
+                      </Label>
                       <Input
                         id="name"
                         name="name"
@@ -458,7 +469,9 @@ const DonateNow = ({ ngoData }) => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="email" className="text-gray-700">Email Address</Label>
+                      <Label htmlFor="email" className="text-gray-700">
+                        Email Address
+                      </Label>
                       <Input
                         id="email"
                         name="email"
@@ -471,7 +484,9 @@ const DonateNow = ({ ngoData }) => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="phone" className="text-gray-700">Phone Number</Label>
+                      <Label htmlFor="phone" className="text-gray-700">
+                        Phone Number
+                      </Label>
                       <Input
                         id="phone"
                         name="phone"
@@ -488,10 +503,14 @@ const DonateNow = ({ ngoData }) => {
 
                 {/* Address Section */}
                 <div className="space-y-4 pt-4 border-t">
-                  <h3 className="text-lg font-medium text-gray-700">Address Details</h3>
+                  <h3 className="text-lg font-medium text-gray-700">
+                    Address Details
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
-                      <Label htmlFor="address" className="text-gray-700">Street Address</Label>
+                      <Label htmlFor="address" className="text-gray-700">
+                        Street Address
+                      </Label>
                       <Input
                         id="address"
                         name="address"
@@ -503,7 +522,9 @@ const DonateNow = ({ ngoData }) => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="city" className="text-gray-700">City</Label>
+                      <Label htmlFor="city" className="text-gray-700">
+                        City
+                      </Label>
                       <Input
                         id="city"
                         name="city"
@@ -515,7 +536,9 @@ const DonateNow = ({ ngoData }) => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="state" className="text-gray-700">State</Label>
+                      <Label htmlFor="state" className="text-gray-700">
+                        State
+                      </Label>
                       <Input
                         id="state"
                         name="state"
@@ -531,9 +554,13 @@ const DonateNow = ({ ngoData }) => {
 
                 {/* Donation Amount Section */}
                 <div className="space-y-4 pt-4 border-t">
-                  <h3 className="text-lg font-medium text-gray-700">Donation Amount</h3>
+                  <h3 className="text-lg font-medium text-gray-700">
+                    Donation Amount
+                  </h3>
                   <div>
-                    <Label htmlFor="amount" className="text-gray-700">Amount (INR)</Label>
+                    <Label htmlFor="amount" className="text-gray-700">
+                      Amount (INR)
+                    </Label>
                     <Input
                       id="amount"
                       name="amount"
@@ -545,7 +572,7 @@ const DonateNow = ({ ngoData }) => {
                       required
                     />
                   </div>
-                  
+
                   <div className="flex items-center space-x-2 bg-gray-50 p-4 rounded-lg">
                     <Checkbox
                       id="wantsCertificate"
@@ -559,7 +586,8 @@ const DonateNow = ({ ngoData }) => {
                       }
                     />
                     <Label htmlFor="wantsCertificate" className="text-gray-700">
-                      I would like to receive a tax redemption certificate for this donation
+                      I would like to receive a tax redemption certificate for
+                      this donation
                     </Label>
                   </div>
                 </div>
