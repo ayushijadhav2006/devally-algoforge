@@ -23,10 +23,15 @@ import {
   UsersIcon,
   Globe,
   IndianRupee,
+  Trophy,
+  Target,
+  Star
 } from "lucide-react";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
 import { TranslationModal } from "@/components/TranslationModal";
+import { useGamification } from "@/context/GamificationContext";
+import { Progress } from "@/components/ui/progress";
 import NGORecommendation from "@/components/NGORecommendation"; // Import the new component
 
 export default function UserDashboardPage() {
@@ -37,6 +42,8 @@ export default function UserDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [showTranslationModal, setShowTranslationModal] = useState(false);
   const { language, translations } = useLanguage();
+  const { userPoints, userLevel, userBadges, getNextLevel, getLevelProgress } = useGamification();
+  const [levelProgress, setLevelProgress] = useState(0);
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -101,6 +108,12 @@ export default function UserDashboardPage() {
 
     fetchUserData();
   }, [user]);
+
+  useEffect(() => {
+    // Animate progress bar on load
+    const progress = getLevelProgress ? getLevelProgress() : 0;
+    setLevelProgress(progress);
+  }, [getLevelProgress, userPoints]);
 
   const attendedActivities = participations.filter(
     (participation) => participation.attendance === true

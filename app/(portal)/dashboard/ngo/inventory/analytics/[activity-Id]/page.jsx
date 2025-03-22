@@ -39,6 +39,8 @@ import { useAuth } from "@/context/AuthContext"
 import dynamic from "next/dynamic"
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
+import { getAuth } from "firebase/auth";
+import { toast } from "@/hooks/use-toast"
 
 // Create a completely client-side PDF download component
 const PDFDownloadButton = dynamic(
@@ -82,6 +84,91 @@ export default function NGOInventoryAnalyticsPage({ params }) {
   const [updatedQuantity, setUpdatedQuantity] = useState(0)
   const [isUpdating, setIsUpdating] = useState(false)
   const [currentProductDetails, setCurrentProductDetails] = useState(null)
+  const [ngoId, setNgoId] = useState(null)
+  const [ngoCollection, setNgoCollection] = useState("ngo") // Default to singular collection
+
+  // Add useEffect to get the NGO ID on component mount
+  useEffect(() => {
+    const getCurrentNgoId = async () => {
+      try {
+        // Get the current user from Firebase Auth
+        const auth = getAuth();
+        const user = auth.currentUser;
+        
+        if (user) {
+          const userId = user.uid;
+          
+          // First approach: Check if the user document has an ngoId field
+          const userDocRef = doc(db, "users", userId);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists() && userDoc.data().ngoId) {
+            // If user document has ngoId, use it directly
+            const ngoId = userDoc.data().ngoId;
+            console.log("Found NGO ID in user document:", ngoId);
+            setNgoId(ngoId);
+            // For user documents, we need to determine which collection to use
+            // Try to find if the ngoId exists in 'ngo' collection first
+            const ngoDocRef = doc(db, "ngo", ngoId);
+            const ngoDoc = await getDoc(ngoDocRef);
+            if (ngoDoc.exists()) {
+              setNgoCollection("ngo");
+            } else {
+              // Try 'ngos' collection as fallback
+              const ngosDocRef = doc(db, "ngos", ngoId);
+              const ngosDoc = await getDoc(ngosDocRef);
+              if (ngosDoc.exists()) {
+                setNgoCollection("ngos");
+              }
+            }
+            return;
+          }
+          
+          // Second approach: Try the "ngos" collection (plural)
+          const ngosQuery = query(collection(db, "ngos"), where("userId", "==", userId));
+          const ngosSnapshot = await getDocs(ngosQuery);
+          
+          if (!ngosSnapshot.empty) {
+            const ngoDoc = ngosSnapshot.docs[0];
+            console.log("Found NGO in 'ngos' collection:", ngoDoc.id);
+            setNgoId(ngoDoc.id);
+            setNgoCollection("ngos");
+            return;
+          }
+          
+          // Third approach: Try the "ngo" collection (singular)
+          const ngoQuery = query(collection(db, "ngo"), where("userId", "==", userId));
+          const ngoSnapshot = await getDocs(ngoQuery);
+          
+          if (!ngoSnapshot.empty) {
+            const ngoDoc = ngoSnapshot.docs[0];
+            console.log("Found NGO in 'ngo' collection:", ngoDoc.id);
+            setNgoId(ngoDoc.id);
+            setNgoCollection("ngo");
+            return;
+          }
+          
+          console.error("No NGO found for current user");
+          toast({
+            title: "Error",
+            description: "Could not find NGO profile for your account",
+            variant: "destructive"
+          });
+        } else {
+          console.error("No user is logged in");
+          toast({
+            title: "Error",
+            description: "You must be logged in to view inventory",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error("Error getting NGO ID:", error);
+      }
+    };
+    
+    getCurrentNgoId();
+  }, []);
 
   useEffect(() => {
     const fetchActivitiesAndInventory = async () => {
@@ -189,9 +276,16 @@ export default function NGOInventoryAnalyticsPage({ params }) {
 
   useEffect(() => {
     const fetchProductsAndRes = async () => {
+      if (!ngoId) {
+        console.log("No NGO ID available for fetching products");
+        return;
+      }
+      
       try {
-        // Fetch products
-        const productsCollection = collection(db, "products");
+        console.log(`Fetching products for NGO: ${ngoId}`);
+        
+        // Fetch products from the NGO's products subcollection
+        const productsCollection = collection(db, ngoCollection, ngoId, 'products');
         const productsSnapshot = await getDocs(productsCollection);
         const products = productsSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -199,12 +293,22 @@ export default function NGOInventoryAnalyticsPage({ params }) {
           productName: doc.data().productName || doc.data().name,
           category: doc.data().category || 'Uncategorized',
           quantity: doc.data().quantity || 0,
+          ngoId: ngoId,
           ...doc.data()
         }));
+        
+        console.log(`Found ${products.length} products belonging to NGO ${ngoId}`);
 
-        // Fetch res collection
+        // Fetch res collection - also filter by NGO ID if applicable
+        // Some res items may be shared across NGOs, so we'll check for ngoId if it exists
         const resCollection = collection(db, "res");
-        const resSnapshot = await getDocs(resCollection);
+        let resQuery;
+        
+        // Check if we should filter by NGO ID
+        // If res items have ngoId field, use it for filtering
+        resQuery = query(resCollection, where("ngoId", "==", ngoId));
+        
+        const resSnapshot = await getDocs(resQuery);
         const resItems = resSnapshot.docs.map(doc => {
           const data = doc.data();
           // Calculate actual available quantity for donations
@@ -216,9 +320,12 @@ export default function NGOInventoryAnalyticsPage({ params }) {
             category: data.category || 'Uncategorized',
             quantity: quantity, // Use remaining as the quantity
             remaining: quantity,
+            ngoId: ngoId,
             ...data
           };
         });
+        
+        console.log(`Found ${resItems.length} resource items for NGO ${ngoId}`);
 
         // Combine similar items
         const combinedItems = new Map();
@@ -257,11 +364,16 @@ export default function NGOInventoryAnalyticsPage({ params }) {
         setResItems(Array.from(combinedItems.values()).filter(item => !item.sources.every(s => s.type === 'product')));
       } catch (error) {
         console.error("Error fetching products and res:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load products. Please try again.",
+          variant: "destructive"
+        });
       }
     };
 
-    if (isDialogOpen) fetchProductsAndRes();
-  }, [isDialogOpen]);
+    if (isDialogOpen && ngoId) fetchProductsAndRes();
+  }, [isDialogOpen, ngoId, ngoCollection]);
 
   useEffect(() => {
     if (productToUpdate) {
@@ -393,7 +505,7 @@ const handleAddProduct = async () => {
     const activityId = unwrappedParams['activity-Id'];
     const userDocRef = doc(db, "users", authUser.uid);
     const userDoc = await getDoc(userDocRef);
-    const ngoId = userDoc.data()?.ngoId || authUser.uid;
+    const ngoId = userDoc.data()?.ngoId || ngoId || authUser.uid; // Use component ngoId if available
 
     // Improved check for existing items with more robust matching
     const existingItemIndex = inventoryItems.findIndex(item => {
@@ -437,18 +549,55 @@ const handleAddProduct = async () => {
       remainingToAssign -= quantityFromSource;
 
       if (source.type === 'product') {
-        // Update product collection
-        const productDocRef = doc(db, "products", source.id);
-        await updateDoc(productDocRef, {
-          quantity: increment(-quantityFromSource),
-          usedinevents: arrayUnion({
-            eventid: activityId,
-            eventName: eventDetails.eventName || "",
-            eventDate: eventDetails.eventDate || "",
-            assigned: quantityFromSource,
-            remaining: quantityFromSource
-          })
-        });
+        // Update product in the NGO's products subcollection instead of the main products collection
+        const productDocRef = doc(db, ngoCollection, ngoId, "products", source.id);
+        const productDoc = await getDoc(productDocRef);
+        
+        if (productDoc.exists()) {
+          console.log(`Updating product in ${ngoCollection}/${ngoId}/products/${source.id}`);
+          
+          // Get current usedinevents array or initialize it
+          const currentUsedInEvents = productDoc.data().usedinevents || [];
+          
+          // Check if this event is already in the array
+          const existingEventIndex = currentUsedInEvents.findIndex(
+            event => event.eventid === activityId
+          );
+          
+          let updatedUsedInEvents;
+          
+          if (existingEventIndex !== -1) {
+            // Update existing entry
+            updatedUsedInEvents = [...currentUsedInEvents];
+            updatedUsedInEvents[existingEventIndex] = {
+              ...updatedUsedInEvents[existingEventIndex],
+              assigned: (updatedUsedInEvents[existingEventIndex].assigned || 0) + quantityFromSource,
+              remaining: (updatedUsedInEvents[existingEventIndex].remaining || 0) + quantityFromSource,
+              eventName: eventDetails.eventName || "",
+              eventDate: eventDetails.eventDate || ""
+            };
+          } else {
+            // Add new entry
+            updatedUsedInEvents = [
+              ...currentUsedInEvents,
+              {
+                eventid: activityId,
+                eventName: eventDetails.eventName || "",
+                eventDate: eventDetails.eventDate || "",
+                assigned: quantityFromSource,
+                remaining: quantityFromSource
+              }
+            ];
+          }
+          
+          // Update the product with the new quantity and events
+          await updateDoc(productDocRef, {
+            quantity: increment(-quantityFromSource),
+            usedinevents: updatedUsedInEvents
+          });
+        } else {
+          console.warn(`Product ${source.id} not found in NGO subcollection, skipping update`);
+        }
       } else if (source.type === 'res') {
         // Update res collection - update BOTH quantity and remaining fields
         const resDocRef = doc(db, "res", source.id);
@@ -576,9 +725,18 @@ const handleAddProduct = async () => {
     setSelectedProduct(null);
     setAssignedQuantity(1);
     
+    toast({
+      title: "Success", 
+      description: "Product added to inventory successfully"
+    });
+    
   } catch (error) {
     console.error("Error adding product:", error);
-    alert("Failed to add product. Please try again.");
+    toast({
+      title: "Error",
+      description: `Failed to add product: ${error.message}`,
+      variant: "destructive"
+    });
   } finally {
     setIsAdding(false);
   }

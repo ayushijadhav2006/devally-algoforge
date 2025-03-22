@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
-import { Filter, Calendar, MapPin, X } from "lucide-react";
+import { Filter, Calendar, MapPin, X, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -38,8 +38,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { db } from "@/lib/firebase"; // You'll need to create this firebase config file
-import { collection, addDoc, getDocs, serverTimestamp, query, orderBy } from "firebase/firestore";
+import { db, storage } from "@/lib/firebase"; // You'll need to create this firebase config file
+import { collection, addDoc, getDocs, serverTimestamp, query, orderBy, doc, getDoc, where, setDoc } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+import { toast } from "@/hooks/use-toast";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export default function ProductsPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -48,6 +51,11 @@ export default function ProductsPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [customCategory, setCustomCategory] = useState("");
+  const [ngoId, setNgoId] = useState(null);
+  const [ngoCollection, setNgoCollection] = useState("ngo"); // Default to singular collection
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = useRef(null);
   
   // Form state
   const [productData, setProductData] = useState({
@@ -58,15 +66,103 @@ export default function ProductsPage() {
     productImage: "", // You might want to use Firebase Storage for actual image upload
   });
 
-  // Fetch products from Firestore
+  // First, get the NGO ID of the authenticated user
   useEffect(() => {
+    const getCurrentNgoId = async () => {
+      try {
+        // Get the current user from Firebase Auth
+        const auth = getAuth();
+        const user = auth.currentUser;
+        
+        if (user) {
+          const userId = user.uid;
+          
+          // First approach: Check if the user document has an ngoId field
+          const userDocRef = doc(db, "users", userId);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists() && userDoc.data().ngoId) {
+            // If user document has ngoId, use it directly
+            const ngoId = userDoc.data().ngoId;
+            console.log("Found NGO ID in user document:", ngoId);
+            setNgoId(ngoId);
+            // For user documents, we need to determine which collection to use
+            // Try to find if the ngoId exists in 'ngo' collection first
+            const ngoDocRef = doc(db, "ngo", ngoId);
+            const ngoDoc = await getDoc(ngoDocRef);
+            if (ngoDoc.exists()) {
+              setNgoCollection("ngo");
+            } else {
+              // Try 'ngos' collection as fallback
+              const ngosDocRef = doc(db, "ngos", ngoId);
+              const ngosDoc = await getDoc(ngosDocRef);
+              if (ngosDoc.exists()) {
+                setNgoCollection("ngos");
+              }
+            }
+            return;
+          }
+          
+          // Second approach: Try the "ngos" collection (plural)
+          const ngosQuery = query(collection(db, "ngos"), where("userId", "==", userId));
+          const ngosSnapshot = await getDocs(ngosQuery);
+          
+          if (!ngosSnapshot.empty) {
+            const ngoDoc = ngosSnapshot.docs[0];
+            console.log("Found NGO in 'ngos' collection:", ngoDoc.id);
+            setNgoId(ngoDoc.id);
+            setNgoCollection("ngos");
+            return;
+          }
+          
+          // Third approach: Try the "ngo" collection (singular)
+          const ngoQuery = query(collection(db, "ngo"), where("userId", "==", userId));
+          const ngoSnapshot = await getDocs(ngoQuery);
+          
+          if (!ngoSnapshot.empty) {
+            const ngoDoc = ngoSnapshot.docs[0];
+            console.log("Found NGO in 'ngo' collection:", ngoDoc.id);
+            setNgoId(ngoDoc.id);
+            setNgoCollection("ngo");
+            return;
+          }
+          
+          console.error("No NGO found for current user");
+          toast({
+            title: "Error",
+            description: "Could not find NGO profile for your account",
+            variant: "destructive"
+          });
+        } else {
+          console.error("No user is logged in");
+          toast({
+            title: "Error",
+            description: "You must be logged in to manage products",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error("Error getting NGO ID:", error);
+      }
+    };
+    
+    getCurrentNgoId();
+  }, []);
+
+  // Fetch products from Firestore once we have the NGO ID
+  useEffect(() => {
+    if (!ngoId) return;
+    
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const productsQuery = query(collection(db, "products"), orderBy("createdAt", "desc"));
-        const querySnapshot = await getDocs(productsQuery);
+        console.log(`Fetching products from ${ngoCollection}/${ngoId}/products`);
         
-        const productsData = querySnapshot.docs.map(doc => ({
+        // Reference to the products subcollection under the NGO's document
+        const productsCollection = collection(db, ngoCollection, ngoId, 'products');
+        const productsSnapshot = await getDocs(productsCollection);
+        
+        const productsData = productsSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         }));
@@ -74,13 +170,18 @@ export default function ProductsPage() {
         setProducts(productsData);
       } catch (error) {
         console.error("Error fetching products: ", error);
+        toast({
+          title: "Error",
+          description: "Failed to load product data",
+          variant: "destructive"
+        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchProducts();
-  }, []);
+  }, [ngoId, ngoCollection]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -102,33 +203,96 @@ export default function ProductsPage() {
     }
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      // Create a preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImageToFirebase = async (file) => {
+    if (!file) return null;
+    
+    try {
+      const timestamp = Date.now();
+      const fileName = `${timestamp}-${file.name}`;
+      const storageRef = ref(storage, `product-images/${fileName}`);
+      
+      const snapshot = await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      
+      return downloadURL;
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to upload image",
+        variant: "destructive"
+      });
+      return null;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!ngoId) {
+      toast({
+        title: "Error",
+        description: "NGO ID not found. Please try again later.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
       // If "Other" is selected, use the custom category value
-      const finalCategory = productData.category === "Other" && customCategory ? 
-        customCategory : productData.category;
+      const finalCategory = productData.category === "Other" && customCategory.trim() ? 
+        customCategory.trim() : productData.category;
       
-      // Prepare data for Firestore
+      // Upload image if selected
+      let imageUrl = productData.productImage;
+      if (selectedImage) {
+        imageUrl = await uploadImageToFirebase(selectedImage);
+        if (!imageUrl) {
+          setIsSubmitting(false);
+          return; // Stop if image upload failed
+        }
+      }
+      
+      // Generate a unique ID for the new product
+      const productRef = doc(collection(db, ngoCollection, ngoId, 'products'));
+      
+      // Prepare the product data
       const productToAdd = {
         ...productData,
+        productImage: imageUrl,
         category: finalCategory,
         quantity: parseInt(productData.quantity) || 0,
-        createdAt: serverTimestamp(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ngoId: ngoId,
+        id: productRef.id // Include the ID in the document data for easier reference
       };
 
-      // Add document to Firestore
-      const docRef = await addDoc(collection(db, "products"), productToAdd);
+      // Remove custom category field if it exists
+      if ('customCategory' in productToAdd) {
+        delete productToAdd.customCategory;
+      }
+
+      // Add document to Firestore with the generated ID
+      await setDoc(productRef, productToAdd);
       
       // Add the new product to the state with its ID
-      const newProduct = {
-        id: docRef.id,
-        ...productToAdd,
-      };
-      
-      setProducts(prevProducts => [newProduct, ...prevProducts]);
+      setProducts(prevProducts => [productToAdd, ...prevProducts]);
       
       // Reset form and close modal
       setProductData({
@@ -139,11 +303,22 @@ export default function ProductsPage() {
         productImage: "",
       });
       setCustomCategory("");
+      setSelectedImage(null);
+      setImagePreview(null);
       setIsModalOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Product added successfully"
+      });
       
     } catch (error) {
       console.error("Error adding product: ", error);
-      // Handle error (show error message to user)
+      toast({
+        title: "Error",
+        description: "Failed to add product",
+        variant: "destructive"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -161,8 +336,8 @@ export default function ProductsPage() {
 
   // Add this computed value before the return statement
   const filteredProducts = products.filter(product =>
-    product.productName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchTerm.toLowerCase())
+    product.productName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    product.category?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -257,7 +432,22 @@ export default function ProductsPage() {
       </Card>
 
       {/* Add Product Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => {
+        setIsModalOpen(open);
+        if (!open) {
+          // Reset form state when dialog is closed
+          setProductData({
+            productName: "",
+            category: "",
+            quantity: "",
+            description: "",
+            productImage: "",
+          });
+          setCustomCategory("");
+          setSelectedImage(null);
+          setImagePreview(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Add New Product</DialogTitle>
@@ -276,14 +466,55 @@ export default function ProductsPage() {
               </div>
               
               <div className="grid gap-2">
-                <Label htmlFor="productImage">Product Image URL</Label>
-                <Input
-                  id="productImage"
-                  name="productImage"
-                  value={productData.productImage}
-                  onChange={handleInputChange}
-                  placeholder="Image URL or placeholder"
-                />
+                <Label htmlFor="productImage">Product Image</Label>
+                <div className="flex flex-col space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Image
+                    </Button>
+                    <Input
+                      id="productImage"
+                      type="file"
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                    />
+                    {selectedImage && (
+                      <span className="text-sm text-muted-foreground">
+                        {selectedImage.name}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {imagePreview && (
+                    <div className="mt-2">
+                      <div className="relative h-40 w-full overflow-hidden rounded border border-muted">
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!selectedImage && (
+                    <Input
+                      id="productImageUrl"
+                      name="productImage"
+                      value={productData.productImage}
+                      onChange={handleInputChange}
+                      placeholder="Or enter image URL"
+                      className="mt-2"
+                    />
+                  )}
+                </div>
               </div>
               
               <div className="grid gap-2">

@@ -72,6 +72,8 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
   const [newContractAddress, setNewContractAddress] = useState(null);
   // Add state to hold pending data while waiting for contract creation
   const [pendingDonationsData, setPendingDonationsData] = useState(null);
+  const [pollInterval, setPollInterval] = useState(null);
+  const [isPollingActive, setIsPollingActive] = useState(false);
 
   const { data: hash, isPending, writeContract } = useWriteContract();
   const { address: walletAddress, isConnected } = useAccount();
@@ -80,6 +82,7 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     data: ngoOwnerAddContract,
     error: ngoOwnerError,
     isPending: ngoOwnerAddPending,
+    refetch: refetchNgoContract,
   } = useReadContract({
     address: "0xBe1cC0D67244B29B903848EF52530538830bD6d7",
     abi: SuperAdminABI,
@@ -92,6 +95,108 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     ngoOwnerAddContract === "0x0000000000000000000000000000000000000000"
       ? null
       : ngoOwnerAddContract;
+
+  // Add event listener for refetching
+  useEffect(() => {
+    const handleRefetch = () => {
+      console.log("Refetching contract data...");
+      refetchNgoContract?.();
+    };
+
+    window.addEventListener("contract:refetch", handleRefetch);
+
+    return () => {
+      window.removeEventListener("contract:refetch", handleRefetch);
+    };
+  }, [refetchNgoContract]);
+
+  // Poll for contract data if address is empty (0x0)
+  useEffect(() => {
+    // Only start polling if crypto is enabled and we have a wallet address
+    if (
+      donationsData.isCryptoTransferEnabled &&
+      donationsData.cryptoWalletAddress
+    ) {
+      // Check if we have an empty contract (0x0 address)
+      const isEmptyContract =
+        !formattedNgoOwnerContract && !ngoOwnerAddPending && !ngoOwnerError;
+
+      if (isEmptyContract) {
+        // First do an immediate check
+        console.log("Immediate contract data check...");
+        refetchNgoContract?.();
+
+        // Set polling active state
+        setIsPollingActive(true);
+
+        // Then start polling every 30 seconds
+        const interval = setInterval(() => {
+          console.log("Polling for contract data...");
+          // Refresh the contract data by forcing a refetch
+          window.dispatchEvent(new CustomEvent("contract:refetch"));
+        }, 30000); // 30 seconds
+
+        setPollInterval(interval);
+
+        // Log polling start
+        console.log("Started polling for contract data");
+
+        // Clean up interval when component unmounts or contract is found
+        return () => {
+          clearInterval(interval);
+          setPollInterval(null);
+          setIsPollingActive(false);
+          console.log("Stopped polling for contract data");
+        };
+      } else if (pollInterval) {
+        // If we have a contract and we're still polling, stop polling
+        clearInterval(pollInterval);
+        setPollInterval(null);
+        setIsPollingActive(false);
+        console.log("Contract found, stopped polling");
+      }
+    } else if (pollInterval) {
+      // If crypto is disabled but we're still polling, stop polling
+      clearInterval(pollInterval);
+      setPollInterval(null);
+      setIsPollingActive(false);
+      console.log("Crypto disabled, stopped polling");
+    }
+  }, [
+    formattedNgoOwnerContract,
+    donationsData.isCryptoTransferEnabled,
+    donationsData.cryptoWalletAddress,
+    ngoOwnerAddPending,
+    ngoOwnerError,
+    pollInterval,
+    refetchNgoContract,
+  ]);
+
+  // Reset contract data when wallet address changes
+  useEffect(() => {
+    if (isUpdatingWallet && isConnected && walletAddress) {
+      // When wallet address changes, we should get fresh contract data
+      console.log("Wallet address updated, fetching new contract data");
+
+      // Stop any existing polling
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        setPollInterval(null);
+        setIsPollingActive(false);
+      }
+
+      // Force an immediate refetch with the new wallet address
+      setTimeout(() => {
+        refetchNgoContract?.();
+      }, 1000); // Small delay to ensure state updates have propagated
+    }
+  }, [
+    walletAddress,
+    isConnected,
+    isUpdatingWallet,
+    pollInterval,
+    refetchNgoContract,
+  ]);
 
   // Fetch donation data once on component mount
   useEffect(() => {
@@ -500,6 +605,12 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     }
   };
 
+  const handleManualContractRefresh = () => {
+    console.log("Manual contract data refresh requested");
+    refetchNgoContract?.();
+    toast.info("Checking for contract updates...");
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center p-8">
@@ -868,6 +979,34 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
                             Loading Contract Data...
                           </span>
                         </div>
+                      </div>
+                    )}
+
+                  {isPollingActive &&
+                    !ngoOwnerAddPending &&
+                    donationsData.isCryptoTransferEnabled && (
+                      <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <RefreshCw className="w-5 h-5 text-yellow-600 mr-2 animate-spin" />
+                            <span className="font-medium text-yellow-800">
+                              Checking for contract updates every 30 seconds...
+                            </span>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleManualContractRefresh}
+                            className="border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                            Check Now
+                          </Button>
+                        </div>
+                        <p className="text-sm text-yellow-700 mt-1">
+                          This process continues until a contract is found. You
+                          can leave this page and come back later.
+                        </p>
                       </div>
                     )}
                 </div>

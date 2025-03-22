@@ -1,6 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef } from 'react';
+import { collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where, setDoc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/lib/firebase';
+import { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
@@ -16,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { BarChart, FileImage, Edit, Trash2, PlusCircle, ShoppingBag, LineChart, DollarSign, Package, Upload } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { getAuth } from "firebase/auth";
 
 export default function MerchandiseManagement() {
   const [merchandise, setMerchandise] = useState([]);
@@ -28,6 +33,8 @@ export default function MerchandiseManagement() {
   const [currentItem, setCurrentItem] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [ngoId, setNgoId] = useState(null);
+  const [ngoCollection, setNgoCollection] = useState("ngo"); // Default to singular collection
   const fileInputRef = useRef(null);
   const editFileInputRef = useRef(null);
 
@@ -38,7 +45,8 @@ export default function MerchandiseManagement() {
     image: 'na',
     available: true,
     description: '',
-    category: 'clothing'
+    category: 'clothing',
+    otherCategory: ''
   });
 
   // Mock analytics data
@@ -52,17 +60,108 @@ export default function MerchandiseManagement() {
       { month: 'Apr', sales: 0 },
       { month: 'May', sales: 0 },
       { month: 'Jun', sales: 0 }
-    ]
+    ],
+    recentSales: [],
+    topBuyers: []
   });
 
   useEffect(() => {
-    fetchMerchandise();
+    // Get the currently logged in NGO's ID
+    const getCurrentNgoId = async () => {
+      try {
+        // Get the current user from Firebase Auth
+        const auth = getAuth();
+        const user = auth.currentUser;
+        
+        if (user) {
+          const userId = user.uid;
+          
+          // First approach: Check if the user document has an ngoId field
+          const userDocRef = doc(db, "users", userId);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists() && userDoc.data().ngoId) {
+            // If user document has ngoId, use it directly
+            const ngoId = userDoc.data().ngoId;
+            console.log("Found NGO ID in user document:", ngoId);
+            setNgoId(ngoId);
+            // For user documents, we need to determine which collection to use
+            // Try to find if the ngoId exists in 'ngo' collection first
+            const ngoDocRef = doc(db, "ngo", ngoId);
+            const ngoDoc = await getDoc(ngoDocRef);
+            if (ngoDoc.exists()) {
+              setNgoCollection("ngo");
+            } else {
+              // Try 'ngos' collection as fallback
+              const ngosDocRef = doc(db, "ngos", ngoId);
+              const ngosDoc = await getDoc(ngosDocRef);
+              if (ngosDoc.exists()) {
+                setNgoCollection("ngos");
+              }
+            }
+            return;
+          }
+          
+          // Second approach: Try the "ngos" collection (plural)
+          const ngosQuery = query(collection(db, "ngos"), where("userId", "==", userId));
+          const ngosSnapshot = await getDocs(ngosQuery);
+          
+          if (!ngosSnapshot.empty) {
+            const ngoDoc = ngosSnapshot.docs[0];
+            console.log("Found NGO in 'ngos' collection:", ngoDoc.id);
+            setNgoId(ngoDoc.id);
+            setNgoCollection("ngos");
+            return;
+          }
+          
+          // Third approach: Try the "ngo" collection (singular)
+          const ngoQuery = query(collection(db, "ngo"), where("userId", "==", userId));
+          const ngoSnapshot = await getDocs(ngoQuery);
+          
+          if (!ngoSnapshot.empty) {
+            const ngoDoc = ngoSnapshot.docs[0];
+            console.log("Found NGO in 'ngo' collection:", ngoDoc.id);
+            setNgoId(ngoDoc.id);
+            setNgoCollection("ngo");
+            return;
+          }
+          
+          console.error("No NGO found for current user");
+          toast({
+            title: "Error",
+            description: "Could not find NGO profile for your account",
+            variant: "destructive"
+          });
+        } else {
+          console.error("No user is logged in");
+          toast({
+            title: "Error",
+            description: "You must be logged in to manage merchandise",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error("Error getting NGO ID:", error);
+      }
+    };
+    
+    getCurrentNgoId();
   }, []);
 
+  useEffect(() => {
+    if (ngoId) {
+      fetchMerchandise();
+    }
+  }, [ngoId]);
+
   const fetchMerchandise = async () => {
+    if (!ngoId) return;
+    
     setIsLoading(true);
     try {
-      const merchCollection = collection(db, 'merchandise');
+      console.log(`Fetching merchandise from ${ngoCollection}/${ngoId}/merchandise`);
+      // Reference to the merchandise subcollection under the NGO's document
+      const merchCollection = collection(db, ngoCollection, ngoId, 'merchandise');
       const merchSnapshot = await getDocs(merchCollection);
       const merchList = merchSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -110,6 +209,22 @@ export default function MerchandiseManagement() {
     }
   };
 
+  // This function prepares the currentItem for editing when the edit modal opens
+  const prepareItemForEdit = (item) => {
+    // Check if the category is one of the predefined categories
+    const predefinedCategories = ['clothing', 'accessories', 'books', 'stationery', 'other'];
+    const categoryIsCustom = !predefinedCategories.includes(item.category);
+    
+    const preparedItem = {
+      ...item,
+      // If the category is custom, set category to 'other' and otherCategory to the custom value
+      category: categoryIsCustom ? 'other' : item.category,
+      otherCategory: categoryIsCustom ? item.category : ''
+    };
+    
+    return preparedItem;
+  };
+
   const uploadImageToFirebase = async (file) => {
     if (!file) return null;
     
@@ -134,6 +249,15 @@ export default function MerchandiseManagement() {
   };
 
   const handleAddMerchandise = async () => {
+    if (!ngoId) {
+      toast({
+        title: "Error",
+        description: "NGO ID not found. Please try again later.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsUploading(true);
     try {
       let imageUrl = 'na';
@@ -146,12 +270,32 @@ export default function MerchandiseManagement() {
         }
       }
 
-      await addDoc(collection(db, 'merchandise'), {
+      // Generate a unique ID for the new merchandise
+      const merchandiseRef = doc(collection(db, ngoCollection, ngoId, 'merchandise'));
+      
+      // Handle the category - use otherCategory if category is "other"
+      const finalCategory = newItem.category === 'other' && newItem.otherCategory.trim() 
+        ? newItem.otherCategory.trim() 
+        : newItem.category;
+      
+      // Prepare the merchandise data
+      const merchandiseData = {
         ...newItem,
+        category: finalCategory, // Use the final category value
         price: Number(newItem.price),
         quantity: Number(newItem.quantity),
-        image: imageUrl
-      });
+        image: imageUrl,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ngoId: ngoId,
+        id: merchandiseRef.id // Include the ID in the document data for easier reference
+      };
+
+      // Remove the otherCategory field as it's not needed in the database
+      delete merchandiseData.otherCategory;
+
+      // Set the document data with the generated ID
+      await setDoc(merchandiseRef, merchandiseData);
       
       setOpenAddDialog(false);
       setNewItem({
@@ -161,7 +305,8 @@ export default function MerchandiseManagement() {
         image: 'na',
         available: true,
         description: '',
-        category: 'clothing'
+        category: 'clothing',
+        otherCategory: ''
       });
       setSelectedImage(null);
       setImagePreview(null);
@@ -184,6 +329,15 @@ export default function MerchandiseManagement() {
   };
 
   const handleUpdateMerchandise = async () => {
+    if (!ngoId) {
+      toast({
+        title: "Error",
+        description: "NGO ID not found. Please try again later.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsUploading(true);
     try {
       let imageUrl = currentItem.image;
@@ -196,14 +350,24 @@ export default function MerchandiseManagement() {
         }
       }
 
-      const { newImage, imagePreview, ...itemToUpdate } = currentItem;
+      const { newImage, imagePreview, otherCategory, ...itemToUpdate } = currentItem;
       
-      const docRef = doc(db, 'merchandise', currentItem.id);
+      // Handle the category - use otherCategory if category is "other"
+      if (itemToUpdate.category === 'other' && otherCategory && otherCategory.trim()) {
+        itemToUpdate.category = otherCategory.trim();
+      }
+      
+      // Reference to the specific merchandise document in the NGO's subcollection
+      const docRef = doc(db, ngoCollection, ngoId, 'merchandise', currentItem.id);
+      
+      // Update the merchandise data
       await updateDoc(docRef, {
         ...itemToUpdate,
         price: Number(itemToUpdate.price),
         quantity: Number(itemToUpdate.quantity),
-        image: imageUrl
+        image: imageUrl,
+        updatedAt: new Date(),
+        ngoId: ngoId  // Ensure the NGO ID is still associated
       });
       
       setOpenEditDialog(false);
@@ -225,8 +389,18 @@ export default function MerchandiseManagement() {
   };
 
   const handleDeleteMerchandise = async () => {
+    if (!ngoId) {
+      toast({
+        title: "Error",
+        description: "NGO ID not found. Please try again later.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
-      const docRef = doc(db, 'merchandise', currentItem.id);
+      // Delete from the NGO's merchandise subcollection
+      const docRef = doc(db, ngoCollection, ngoId, 'merchandise', currentItem.id);
       await deleteDoc(docRef);
       setOpenDeleteDialog(false);
       toast({
@@ -261,13 +435,159 @@ export default function MerchandiseManagement() {
     setAnalyticData({
       totalSold,
       revenue,
-      monthlySales
+      monthlySales,
+      recentSales: [],
+      topBuyers: []
     });
+  };
+
+  const fetchRealAnalytics = async (item) => {
+    setIsLoading(true);
+    try {
+      // Fetch sales history directly from the merchandise's salesHistory subcollection
+      const salesHistoryRef = collection(db, ngoCollection, ngoId, 'merchandise', item.id, 'salesHistory');
+      const salesHistorySnapshot = await getDocs(salesHistoryRef);
+      
+      if (salesHistorySnapshot.empty) {
+        console.log("No sales history found for this merchandise");
+        // Set default values when no sales data is available
+        setAnalyticData({
+          totalSold: item.soldCount || 0,
+          revenue: 0,
+          monthlySales: [
+            { month: 'Jan', sales: 0 },
+            { month: 'Feb', sales: 0 },
+            { month: 'Mar', sales: 0 },
+            { month: 'Apr', sales: 0 },
+            { month: 'May', sales: 0 },
+            { month: 'Jun', sales: 0 }
+          ],
+          recentSales: [],
+          topBuyers: []
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Process sales history data
+      const salesHistory = salesHistorySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Calculate total sold and revenue
+      const totalSold = item.soldCount || salesHistory.reduce((sum, sale) => sum + sale.quantity, 0);
+      const revenue = salesHistory.reduce((sum, sale) => sum + sale.totalPrice, 0);
+      
+      // Process monthly sales data
+      const currentYear = new Date().getFullYear();
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      // Initialize all months with zero sales
+      const monthlySalesMap = {};
+      monthNames.forEach(month => {
+        monthlySalesMap[month] = 0;
+      });
+      
+      // Aggregate sales by month
+      salesHistory.forEach(sale => {
+        const saleDate = sale.purchaseDate ? new Date(sale.purchaseDate.toDate()) : new Date();
+        // Only count sales from the current year
+        if (saleDate.getFullYear() === currentYear) {
+          const monthName = monthNames[saleDate.getMonth()];
+          monthlySalesMap[monthName] += sale.quantity;
+        }
+      });
+      
+      // Convert to array format for chart display
+      const monthlySales = monthNames.map(month => ({
+        month,
+        sales: monthlySalesMap[month]
+      }));
+      
+      // Get recent sales (latest 5)
+      const recentSales = [...salesHistory]
+        .sort((a, b) => {
+          const dateA = a.purchaseDate ? new Date(a.purchaseDate.toDate()) : new Date(0);
+          const dateB = b.purchaseDate ? new Date(b.purchaseDate.toDate()) : new Date(0);
+          return dateB - dateA;
+        })
+        .slice(0, 5);
+      
+      // Calculate top buyers
+      const buyerMap = {};
+      salesHistory.forEach(sale => {
+        const buyerId = sale.buyerId || 'unknown';
+        if (!buyerMap[buyerId]) {
+          buyerMap[buyerId] = {
+            buyerId,
+            customerName: sale.customerName || 'Unknown Customer',
+            totalQuantity: 0,
+            totalSpent: 0,
+            lastPurchase: null
+          };
+        }
+        
+        buyerMap[buyerId].totalQuantity += sale.quantity;
+        buyerMap[buyerId].totalSpent += sale.totalPrice;
+        
+        const saleDate = sale.purchaseDate ? new Date(sale.purchaseDate.toDate()) : null;
+        if (saleDate && (!buyerMap[buyerId].lastPurchase || saleDate > new Date(buyerMap[buyerId].lastPurchase))) {
+          buyerMap[buyerId].lastPurchase = saleDate;
+        }
+      });
+      
+      // Get top 3 buyers by quantity
+      const topBuyers = Object.values(buyerMap)
+        .sort((a, b) => b.totalQuantity - a.totalQuantity)
+        .slice(0, 3);
+      
+      setAnalyticData({
+        totalSold,
+        revenue,
+        monthlySales,
+        recentSales,
+        topBuyers
+      });
+      
+    } catch (error) {
+      console.error("Error fetching analytics data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load analytics data",
+        variant: "destructive"
+      });
+      
+      // Fallback to default values
+      setAnalyticData({
+        totalSold: item.soldCount || 0,
+        revenue: 0,
+        monthlySales: [
+          { month: 'Jan', sales: 0 },
+          { month: 'Feb', sales: 0 },
+          { month: 'Mar', sales: 0 },
+          { month: 'Apr', sales: 0 },
+          { month: 'May', sales: 0 },
+          { month: 'Jun', sales: 0 }
+        ],
+        recentSales: [],
+        topBuyers: []
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleViewAnalytics = (item) => {
     setCurrentItem(item);
-    generateMockAnalytics(item);
+    
+    // Use real analytics data if available, otherwise use mock data
+    if (ngoId) {
+      fetchRealAnalytics(item);
+    } else {
+      generateMockAnalytics(item);
+    }
+    
     setOpenAnalyticsDialog(true);
   };
 
@@ -300,7 +620,7 @@ export default function MerchandiseManagement() {
                   key={item.id} 
                   item={item} 
                   onEdit={() => {
-                    setCurrentItem({...item});
+                    setCurrentItem(prepareItemForEdit({...item}));
                     setOpenEditDialog(true);
                   }}
                   onDelete={() => {
@@ -326,7 +646,7 @@ export default function MerchandiseManagement() {
                     key={item.id} 
                     item={item} 
                     onEdit={() => {
-                      setCurrentItem({...item});
+                      setCurrentItem(prepareItemForEdit({...item}));
                       setOpenEditDialog(true);
                     }}
                     onDelete={() => {
@@ -352,7 +672,7 @@ export default function MerchandiseManagement() {
                     key={item.id} 
                     item={item} 
                     onEdit={() => {
-                      setCurrentItem({...item});
+                      setCurrentItem(prepareItemForEdit({...item}));
                       setOpenEditDialog(true);
                     }}
                     onDelete={() => {
@@ -432,6 +752,23 @@ export default function MerchandiseManagement() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Show text input for other category */}
+            {newItem.category === 'other' && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="otherCategory" className="text-right">
+                  Specify Category
+                </Label>
+                <Input
+                  id="otherCategory"
+                  value={newItem.otherCategory}
+                  onChange={(e) => setNewItem({...newItem, otherCategory: e.target.value})}
+                  placeholder="Enter custom category"
+                  className="col-span-3"
+                />
+              </div>
+            )}
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="description" className="text-right">
                 Description
@@ -578,6 +915,23 @@ export default function MerchandiseManagement() {
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Show text input for other category in edit modal */}
+              {currentItem.category === 'other' && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-otherCategory" className="text-right">
+                    Specify Category
+                  </Label>
+                  <Input
+                    id="edit-otherCategory"
+                    value={currentItem.otherCategory || ''}
+                    onChange={(e) => setCurrentItem({...currentItem, otherCategory: e.target.value})}
+                    placeholder="Enter custom category"
+                    className="col-span-3"
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-description" className="text-right">
                   Description
@@ -687,76 +1041,138 @@ export default function MerchandiseManagement() {
 
       {/* Analytics Dialog */}
       <Dialog open={openAnalyticsDialog} onOpenChange={setOpenAnalyticsDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[900px]">
           <DialogHeader>
             <DialogTitle>Sales Analytics: {currentItem?.name}</DialogTitle>
             <DialogDescription>
               View sales performance for this merchandise item.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Sold</p>
-                      <p className="text-2xl font-bold">{analyticData.totalSold}</p>
-                    </div>
-                    <ShoppingBag className="h-8 w-8 text-primary" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Revenue</p>
-                      <p className="text-2xl font-bold">₹{analyticData.revenue}</p>
-                    </div>
-                    <DollarSign className="h-8 w-8 text-primary" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Current Stock</p>
-                      <p className="text-2xl font-bold">{currentItem?.quantity || 0}</p>
-                    </div>
-                    <Package className="h-8 w-8 text-primary" />
-                  </div>
-                </CardContent>
-              </Card>
+          {isLoading ? (
+            <div className="py-6 text-center">
+              <p>Loading analytics data...</p>
             </div>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Sales</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[200px] w-full">
-                  {/* A simple bar chart visualization - in a real app, you'd use a proper chart library */}
-                  <div className="flex h-full items-end space-x-2">
-                    {analyticData.monthlySales.map((month) => (
-                      <div key={month.month} className="flex flex-col items-center flex-1">
-                        <div 
-                          className="w-full bg-primary rounded-t" 
-                          style={{ 
-                            height: `${(month.sales / Math.max(...analyticData.monthlySales.map(m => m.sales))) * 150}px`,
-                            minHeight: month.sales > 0 ? '10px' : '0px'
-                          }}
-                        />
-                        <div className="text-xs mt-2">{month.month}</div>
-                        <div className="text-xs font-medium">{month.sales}</div>
+          ) : (
+            <div className="py-4">
+              {/* Summary Stats Cards */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Total Sold</p>
+                        <p className="text-2xl font-bold">{analyticData.totalSold}</p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                      <ShoppingBag className="h-8 w-8 text-primary" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Revenue</p>
+                        <p className="text-2xl font-bold">₹{analyticData.revenue.toFixed(2)}</p>
+                      </div>
+                      <DollarSign className="h-8 w-8 text-primary" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Current Stock</p>
+                        <p className="text-2xl font-bold">{currentItem?.quantity || 0}</p>
+                      </div>
+                      <Package className="h-8 w-8 text-primary" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Main Content Area - 2 Columns */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Column - Monthly Sales */}
+                <Card className="md:row-span-2 h-full">
+                  <CardHeader>
+                    <CardTitle>Monthly Sales ({new Date().getFullYear()})</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px] w-full">
+                      {/* A simple bar chart visualization - in a real app, you'd use a proper chart library */}
+                      <div className="flex h-full items-end space-x-2">
+                        {analyticData.monthlySales.map((month) => (
+                          <div key={month.month} className="flex flex-col items-center flex-1">
+                            <div 
+                              className="w-full bg-primary rounded-t" 
+                              style={{ 
+                                height: `${(month.sales / Math.max(...analyticData.monthlySales.map(m => m.sales) || 1)) * 250}px`,
+                                minHeight: month.sales > 0 ? '10px' : '0px'
+                              }}
+                            />
+                            <div className="text-xs mt-2">{month.month}</div>
+                            <div className="text-xs font-medium">{month.sales}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {/* Right Column - Top Section */}
+                {analyticData.recentSales.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent Sales</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {analyticData.recentSales.map((sale, index) => {
+                          const date = sale.purchaseDate ? new Date(sale.purchaseDate.toDate()) : null;
+                          return (
+                            <div key={index} className="flex justify-between items-center border-b pb-2">
+                              <div>
+                                <p className="font-medium">{sale.customerName || 'Unknown Customer'}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {date ? date.toLocaleDateString() : 'Unknown date'} • Qty: {sale.quantity}
+                                </p>
+                              </div>
+                              <p className="font-medium">₹{sale.totalPrice.toFixed(2)}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* Right Column - Bottom Section */}
+                {analyticData.topBuyers.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Top Buyers</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {analyticData.topBuyers.map((buyer, index) => (
+                          <div key={index} className="flex justify-between items-center border-b pb-2">
+                            <div>
+                              <p className="font-medium">{buyer.customerName}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Total purchases: {buyer.totalQuantity} items
+                              </p>
+                            </div>
+                            <p className="font-medium">₹{buyer.totalSpent.toFixed(2)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button type="button" onClick={() => setOpenAnalyticsDialog(false)}>
               Close

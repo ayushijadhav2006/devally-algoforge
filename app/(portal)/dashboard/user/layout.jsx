@@ -14,8 +14,9 @@ import {
   IndianRupee,
   ReceiptIndianRupee,
   Users,
-  ShieldQuestion ,
+  ShieldQuestion,
   ShoppingCart,
+  Medal,
 } from "lucide-react";
 import Chatbot from "@/components/chatbot";
 import { useRouter } from "next/navigation";
@@ -23,6 +24,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import Loading from "@/components/loading/Loading";
+import { NotificationProvider } from "@/providers/NotificationProvider";
 
 const NavConfig = {
   mainNavItems: [
@@ -42,7 +44,6 @@ const NavConfig = {
       icon: Calendar,
       href: "/dashboard/user/activities",
     },
-
     {
       name: "My Donations",
       icon: IndianRupee,
@@ -57,6 +58,16 @@ const NavConfig = {
       name: "Buy Merchandise",
       icon: ShoppingCart,
       href: "/dashboard/user/merchandise",
+    },
+    {
+      name: "Achievements",
+      icon: Trophy,
+      href: "/dashboard/user/achievements",
+    },
+    {
+      name: "Leaderboard",
+      icon: Medal,
+      href: "/dashboard/user/leaderboard",
     },
   ],
   bottomNavItems: [
@@ -97,24 +108,26 @@ const Layout = ({ children }) => {
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-100">
-      <SideNav
-        isOpen={isSideNavOpen}
-        setIsOpen={setIsSideNavOpen}
-        navConfig={NavConfig}
-        type="volunteer"
-      />
-      <main
-        className="flex-1 overflow-y-auto"
-        style={{
-          paddingLeft: isSideNavOpen ? "256px" : "64px",
-          transition: "padding-left 0.3s",
-        }}
-      >
-        <div className="p-4 md:p-8">{children}</div>
-        <Chatbot />
-      </main>
-    </div>
+    <NotificationProvider>
+      <div className="flex min-h-screen bg-gray-100">
+        <SideNav
+          isOpen={isSideNavOpen}
+          setIsOpen={setIsSideNavOpen}
+          navConfig={NavConfig}
+          type="volunteer"
+        />
+        <main
+          className="flex-1 overflow-y-auto"
+          style={{
+            paddingLeft: isSideNavOpen ? "256px" : "64px",
+            transition: "padding-left 0.3s",
+          }}
+        >
+          <div className="p-4 md:p-8">{children}</div>
+          <Chatbot />
+        </main>
+      </div>
+    </NotificationProvider>
   );
 };
 
