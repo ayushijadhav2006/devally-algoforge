@@ -5,13 +5,15 @@ import { cn } from "@/lib/utils";
 import { Footer } from "@/components/footer";
 import Script from "next/script";
 import { AuthProvider } from "@/context/AuthContext";
-import WebProvider from "@/providers/WebProvider"
+import WebProvider from "@/providers/WebProvider";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { GamificationProvider } from "@/context/GamificationContext";
+import "leaflet/dist/leaflet.css";
 
 export const metadata = {
   title: "SMILE-SHARE",
-  description: "SMILE-SHARE is a platform for NGOs to manage their activities and events.",
+  description:
+    "SMILE-SHARE is a platform for NGOs to manage their activities and events.",
 };
 
 export default function RootLayout({ children }) {
@@ -38,6 +40,6 @@ export default function RootLayout({ children }) {
           strategy="beforeInteractive"
         />
       </body>
-    </html >
+    </html>
   );
 }

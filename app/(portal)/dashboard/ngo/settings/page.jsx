@@ -221,18 +221,12 @@ const NGOSettingsPage = () => {
       return;
     }
 
+    // If email is verified, show verification dialog
     setShowVerificationDialog(true);
   };
 
   const confirmVerifyProfile = async () => {
-    if (!validateProfileCompleteness()) {
-      toast.error(
-        "Please complete all required profile information before verifying"
-      );
-      setShowVerificationDialog(false);
-      return;
-    }
-
+    // Since we're only checking email verification, we'll proceed directly
     setIsSubmittingVerification(true);
 
     try {
@@ -403,8 +397,8 @@ const NGOSettingsPage = () => {
                   {ngoBalancePending
                     ? "Loading..."
                     : ngoBalanceError
-                      ? "Error loading balance"
-                      : `${formatEther(ngoBalance || 0n)} NGC`}
+                      ? "No Balance"
+                      : `${formatEther(ngoBalance)}`}
                 </div>
               )}
           </div>
@@ -422,8 +416,8 @@ const NGOSettingsPage = () => {
             </AlertTitle>
             <AlertDescription className="text-orange-600 flex flex-col">
               <p className="mb-2">
-                Please verify your email address before you can verify your NGO
-                profile. Check your inbox for a verification email.
+                Email verification is the only requirement needed to verify your
+                NGO profile. Please check your inbox for a verification email.
               </p>
               <Button
                 variant="outline"
@@ -433,23 +427,6 @@ const NGOSettingsPage = () => {
               >
                 Resend Verification Email
               </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Profile completeness warning if needed */}
-        {!validateProfileCompleteness() && (
-          <Alert
-            variant="warning"
-            className="bg-yellow-50 border-yellow-200 rounded-lg"
-          >
-            <AlertCircle className="h-4 w-4 text-yellow-600" />
-            <AlertTitle className="text-yellow-700 font-medium">
-              Incomplete Profile
-            </AlertTitle>
-            <AlertDescription className="text-yellow-600">
-              Please complete all required information in each tab before
-              verifying your profile.
             </AlertDescription>
           </Alert>
         )}
@@ -507,8 +484,7 @@ const NGOSettingsPage = () => {
               Verify NGO Profile
             </DialogTitle>
             <DialogDescription className="mt-2">
-              Once verified, you will not be able to edit your profile
-              information until admin approval. Do you want to proceed with
+              Your email is verified. Do you want to proceed with NGO profile
               verification?
             </DialogDescription>
           </DialogHeader>
