@@ -53,25 +53,25 @@ export default function Chatbot() {
     stop,
     reload,
     error,
-  } = useChat({ 
+  } = useChat({
     api: "/api/gemini",
-    id: 'ngo-chat',
+    id: "ngo-chat",
     initialMessages: [],
     body: {
       temperature: 0.7, // Lower temperature for more focused responses
-      max_tokens: 200,  // Limit response length
-      stream: true,     // Enable streaming
+      max_tokens: 200, // Limit response length
+      stream: true, // Enable streaming
     },
     onResponse: (response) => {
       // Log response headers and status
-      console.log('Stream response:', response.status);
+      console.log("Stream response:", response.status);
     },
     onFinish: (message) => {
       console.log("AI Response:", message);
     },
     onError: (error) => {
       console.error("Chat Error:", error);
-    }
+    },
   });
 
   const scrollref = useRef(null);
@@ -93,7 +93,7 @@ export default function Chatbot() {
   // Debounced search handler for suggestions
   useEffect(() => {
     if (!messages.length) return;
-    
+
     const lastMessage = messages[messages.length - 1];
     if (lastMessage.role !== "user") return;
 
@@ -109,7 +109,7 @@ export default function Chatbot() {
         return [
           "Is this free?",
           "Why is this free?",
-          "Learn about NGO-CONNECT",
+          "Learn about Smile-Share",
         ];
       } else if (content.includes("volunteer")) {
         return [
@@ -138,9 +138,7 @@ export default function Chatbot() {
   return (
     <div>
       <AnimatePresence>
-        <motion.div
-          className="fixed bottom-4 right-4 z-80"
-        >
+        <motion.div className="fixed bottom-4 right-4 z-80">
           <Button
             ref={chatIconRef}
             onClick={toggleChat}
@@ -158,13 +156,11 @@ export default function Chatbot() {
 
       <AnimatePresence>
         {isChatOpen && (
-          <motion.div
-            className="fixed bottom-20 right-4 z-50 w-[95%] md:w-[500px]"
-          >
+          <motion.div className="fixed bottom-20 right-4 z-50 w-[95%] md:w-[500px]">
             <Card className="border-2">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
                 <CardTitle className="text-lg font-bold">
-                  Chat with Ngo-Connect AI
+                  Chat with Smile-Share AI
                 </CardTitle>
                 <Button
                   onClick={toggleChat}
@@ -201,17 +197,29 @@ export default function Chatbot() {
                           children={message.content}
                           remarkPlugins={[remarkGfm]}
                           components={{
-                            code: ({ node, inline, className, children, ...props }) => {
+                            code: ({
+                              node,
+                              inline,
+                              className,
+                              children,
+                              ...props
+                            }) => {
                               return inline ? (
-                                <code {...props} className="bg-gray-200 px-1 rounded">
+                                <code
+                                  {...props}
+                                  className="bg-gray-200 px-1 rounded"
+                                >
                                   {children}
                                 </code>
                               ) : (
-                                <pre {...props} className="bg-gray-200 p-2 rounded">
+                                <pre
+                                  {...props}
+                                  className="bg-gray-200 p-2 rounded"
+                                >
                                   <code>{children}</code>
                                 </pre>
                               );
-                            }
+                            },
                           }}
                         />
                       </div>

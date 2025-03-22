@@ -66,13 +66,13 @@ export default function Navbar() {
           <Link href="/" className="flex items-center">
             <Image
               src="/logo.png"
-              alt="NGO-Connect"
+              alt="Smile-Share"
               width={150}
               height={40}
               className="h-10 w-auto"
               priority
             />
-            <span className="text-xl font-semibold ml-2">NGO Connect</span>
+            <span className="text-xl font-semibold ml-2">Smile-Share</span>
           </Link>
 
           {/* Language toggle button */}
@@ -83,7 +83,9 @@ export default function Navbar() {
             size="sm"
           >
             <Globe className="h-4 w-4" />
-            <span className="hidden sm:inline">{translations.translate || "Translate"}</span>
+            <span className="hidden sm:inline">
+              {translations.translate || "Translate"}
+            </span>
           </Button>
 
           {/* Mobile Menu Button */}
@@ -237,9 +239,9 @@ export default function Navbar() {
       )}
 
       {/* Translation Modal */}
-      <TranslationModal 
-        isOpen={showTranslationModal} 
-        onClose={() => setShowTranslationModal(false)} 
+      <TranslationModal
+        isOpen={showTranslationModal}
+        onClose={() => setShowTranslationModal(false)}
       />
     </header>
   );

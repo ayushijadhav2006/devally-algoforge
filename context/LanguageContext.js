@@ -55,7 +55,7 @@ const languageDictionaries = {
     logout: "Logout",
     translate: "Translate",
     collapse: "Collapse",
-    ngo_connect: "NGO-Connect",
+    ngo_connect: "Smile-Share",
     select_language: "Select Language",
     international: "International",
     indian: "Indian",
@@ -108,7 +108,7 @@ const languageDictionaries = {
     no_new_notifications: "No new notifications",
     view_all_notifications: "View all notifications",
     failed_receipt_generation: "Failed to generate receipt",
-},
+  },
   es: {
     // Spanish translations
     dashboard: "Panel de control",
@@ -1149,9 +1149,9 @@ const languageDictionaries = {
     participant: "सहभागी",
     join_event_message: "आपल्या स्वयंसेवा यात्रा सुरू करण्यासाठी काही कार्यक्रमात सामील व्हा",
     find_opportunities: "संधी शोधा",
-    quick_actions: "जलद क्रिया", 
+    quick_actions: "जलद क्रिया",
     browse_events: "कार्यक्रम ब्राउझ करा",
-    make_donation: "देणगी करा",  
+    make_donation: "देणगी करा",
     view_donations: "आपल्या देणगी पहा",
     recent_donations: "अलीकडील देणगी",
     organization_name: "संस्थेचं नाव",
@@ -1611,7 +1611,7 @@ const languageDictionaries = {
     all_caught_up: "ಎಲ್ಲಾ ಅಪ್‌ಟು!",
     //search-activity
     search_activities: "ಚಟುವಟಿಕೆಗಳನ್ನು ಹುಡುಕಿ",
-    no_date: "ದಿನಾಂಕ ಇಲ್ಲ", 
+    no_date: "ದಿನಾಂಕ ಇಲ್ಲ",
     unknown_ngo: "ತಿಳಿಯದ ಎನ್‌ಜಿಓ",
     search_placeholder: "ಚಟುವಟಿಕೆಗಳನ್ನು ಹುಡುಕಿ",
     search_and_filters: "ಹುಡುಕಿ ಮತ್ತು ಫಿಲ್ಟರ್‌ಗಳು",
@@ -2030,7 +2030,7 @@ const languageDictionaries = {
     view_donations: "ਆਪਣੇ ਦਾਨ ਦੇਖੋ",
     recent_donations: "ਹਾਲ ਦੇ ਦਾਨ",
     organization_name: "ਸੰਗਠਨ ਦਾ ਨਾਮ",
-    general: "ਆਮ",  
+    general: "ਆਮ",
     no_donations_yet: "ਹਾਲੇ ਕੋਈ ਦਾਨ ਨਹੀਂ",
     make_donation_message: "ਆਪਣੇ ਪਸੰਦੀਦਾ ਕਾਰਨ ਲਈ ਸਹਾਇਤਾ ਕਰਨ ਲਈ ਦਾਨ ਕਰੋ",
     donate_now: "ਹੁਣ ਦਾਨ ਕਰੋ",
@@ -2223,7 +2223,7 @@ const languageDictionaries = {
     profile: "ପ୍ରୋଫାଇଲ",
     //userdashboard
     loading: "ଲୋଡିଂ...",
-    loading_dashboard: "ଡ୍ୟାସବୋର୍ଡ ଲୋଡିଂ...",  
+    loading_dashboard: "ଡ୍ୟାସବୋର୍ଡ ଲୋଡିଂ...",
     my_dashboard: "ମୋ ଡ୍ୟାସବୋର୍ଡ",
     translate: "ଅନୁବାଦ",
     personal_overview: "ବ୍ୟକ୍ତିଗତ ଅବଲୋକନ",
@@ -2244,14 +2244,14 @@ const languageDictionaries = {
     recent_donations: "ହାଲକା ଦାନ",
     organization_name: "ସଂଗଠନ ନାମ",
     general: "ସାଧାରଣ",
-    no_donations_yet: "ଏତି ଦାନ ନାହିଁ", 
+    no_donations_yet: "ଏତି ଦାନ ନାହିଁ",
     make_donation_message: "ଆପଣଙ୍କ ପସନ୍ଦର କାରଣ ପାଇଁ ସହାୟ କରିବା ପାଇଁ ଦାନ କରନ୍ତୁ",
     donate_now: "ଏତି ଦାନ କରନ୍ତୁ",
     all_caught_up: "ସବୁ ଅପଡେଟ୍!",
     //search-activity
     search_activities: "କାର୍ଯ୍ୟକଳାପ ଖୋଜନ୍ତୁ",
     no_date: "ତାରିଖ ନାହିଁ",
-    unknown_ngo: "ଅଜଣା ଏନଜିଓ",  
+    unknown_ngo: "ଅଜଣା ଏନଜିଓ",
     search_placeholder: "କାର୍ଯ୍ୟକଳାପ ଖୋଜନ୍ତୁ",
     search_and_filters: "ଖୋଜ ଏବଂ ଫିଲ୍ଟର",
     search_button: "ଖୋଜନ୍ତୁ",
@@ -2863,7 +2863,7 @@ export const LanguageProvider = ({ children }) => {
       setLanguageState(lang);
       setTranslations(languageDictionaries[lang]);
       localStorage.setItem("selectedLanguage", lang);
-      
+
       // Trigger a custom event that can be listened to by the chatbot or other components
       window.dispatchEvent(new CustomEvent("languageChanged", { detail: { language: lang } }));
     }
@@ -2881,12 +2881,12 @@ export const LanguageProvider = ({ children }) => {
   };
 
   return (
-    <LanguageContext.Provider 
-      value={{ 
-        language, 
-        setLanguage, 
-        translations, 
-        internationalLanguages, 
+    <LanguageContext.Provider
+      value={{
+        language,
+        setLanguage,
+        translations,
+        internationalLanguages,
         indianLanguages,
         allLanguages,
         getLanguageName,
