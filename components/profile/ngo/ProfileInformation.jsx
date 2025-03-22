@@ -56,6 +56,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import LocationDialog from "./LocationDialog";
 
 const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
   const [ngoProfile, setNgoProfile] = useState({
@@ -71,6 +72,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
     website: "",
     pan: "",
     address: "",
+    location: null,
     facebook: "",
     twitter: "",
     instagram: "",
@@ -284,6 +286,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
     if (!ngoProfile.district?.trim())
       newErrors.district = "District is required";
     if (!ngoProfile.type?.trim()) newErrors.type = "NGO Type is required";
+    if (!ngoProfile.location) newErrors.location = "Location is required";
 
     if (ngoProfile.type === "Other") {
       if (!ngoProfile.customType?.trim()) {
@@ -963,6 +966,29 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2 space-y-2">
+                <RequiredLabel htmlFor="location">Location</RequiredLabel>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="location"
+                    value={ngoProfile?.location?.address || ""}
+                    className="border-gray-300 flex-grow"
+                    placeholder="Select location on map"
+                    disabled
+                  />
+                  <LocationDialog
+                    onLocationSelect={(location) => {
+                      handleInputChange("location", location);
+                      setErrors((prev) => ({ ...prev, location: undefined }));
+                    }}
+                    defaultLocation={ngoProfile?.location}
+                  />
+                </div>
+                {errors.location && (
+                  <p className="text-red-500 text-sm">{errors.location}</p>
+                )}
+              </div>
+
               <div className="md:col-span-2 space-y-2">
                 <Label htmlFor="address">Full Address</Label>
                 <div className="relative">
