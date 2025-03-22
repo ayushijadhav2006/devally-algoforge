@@ -249,7 +249,9 @@ function HeroSection({ ngo }) {
           <h1 className="text-3xl md:text-4xl font-bold mb-2">{ngo.ngoName}</h1>
           <div className="flex items-center gap-2 text-white/90">
             <MapPin className="h-4 w-4" />
-            {/* <span>{ngo.location || "Location not specified"}</span> */}
+            <span>
+              {ngo.location?.address || ngo.address || "Location not specified"}
+            </span>
           </div>
           <div className="flex gap-2 mt-3">
             <Badge
@@ -356,7 +358,9 @@ function InfoTabs({ ngo, ngoId, ethPrice, activeTab, setActiveTab }) {
                     <div className="bg-muted p-4 rounded-lg">
                       <p className="font-medium">{ngo.ngoName}</p>
                       <p className="text-sm text-muted-foreground">
-                        {/* {ngo.address || ngo.location} */}
+                        {ngo.location?.address ||
+                          ngo.address ||
+                          "Address not specified"}
                       </p>
                       {ngo.phone && (
                         <p className="text-sm text-muted-foreground">
