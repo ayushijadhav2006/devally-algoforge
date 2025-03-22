@@ -162,6 +162,7 @@ const Layout = ({ children }) => {
     ProductNavItems: [
       { name: "Products", icon: PackagePlus, href: "/dashboard/ngo/products" },
       { name: "Inventory", icon: Store, href: "/dashboard/ngo/inventory" },
+      { name: "Merchandise", icon: PackagePlus, href: "/dashboard/ngo/merchandise" },
     ],
 
     bottomNavItems: [
