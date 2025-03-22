@@ -12,7 +12,9 @@ const NGODetails = ({ ngo, ngoId }) => {
         </div>
         <div className="flex items-center space-x-2">
           <MapPin className="h-5 w-5" />
-          <span>{ngo.location}</span>
+          <span>
+            {ngo.location?.address || ngo.address || "Location not specified"}
+          </span>
         </div>
         <div className="flex items-center space-x-2">
           <Mail className="h-5 w-5" />
