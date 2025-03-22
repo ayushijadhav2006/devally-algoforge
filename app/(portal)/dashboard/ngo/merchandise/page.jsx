@@ -1,9 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -14,23 +13,17 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { BarChart, FileImage, Edit, Trash2, PlusCircle, ShoppingBag, LineChart, DollarSign, Package, Upload } from 'lucide-react';
+import { BarChart, FileImage, Edit, Trash2, PlusCircle, ShoppingBag, LineChart, DollarSign, Package } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 export default function MerchandiseManagement() {
   const [merchandise, setMerchandise] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isUploading, setIsUploading] = useState(false);
   const [openAddDialog, setOpenAddDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openAnalyticsDialog, setOpenAnalyticsDialog] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [imagePreview, setImagePreview] = useState(null);
-  const fileInputRef = useRef(null);
-  const editFileInputRef = useRef(null);
-
   const [newItem, setNewItem] = useState({
     name: '',
     price: 0,
@@ -81,78 +74,13 @@ export default function MerchandiseManagement() {
     }
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSelectedImage(file);
-      // Create a preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleEditImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Create a preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCurrentItem({
-          ...currentItem,
-          newImage: file,
-          imagePreview: reader.result
-        });
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const uploadImageToFirebase = async (file) => {
-    if (!file) return null;
-    
-    try {
-      const timestamp = Date.now();
-      const fileName = `${timestamp}-${file.name}`;
-      const storageRef = ref(storage, `merchandise-images/${fileName}`);
-      
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      
-      return downloadURL;
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast({
-        title: "Error",
-        description: "Failed to upload image",
-        variant: "destructive"
-      });
-      return null;
-    }
-  };
-
   const handleAddMerchandise = async () => {
-    setIsUploading(true);
     try {
-      let imageUrl = 'na';
-      
-      if (selectedImage) {
-        imageUrl = await uploadImageToFirebase(selectedImage);
-        if (!imageUrl) {
-          setIsUploading(false);
-          return; // Stop if image upload failed
-        }
-      }
-
       await addDoc(collection(db, 'merchandise'), {
         ...newItem,
         price: Number(newItem.price),
-        quantity: Number(newItem.quantity),
-        image: imageUrl
+        quantity: Number(newItem.quantity)
       });
-      
       setOpenAddDialog(false);
       setNewItem({
         name: '',
@@ -163,9 +91,6 @@ export default function MerchandiseManagement() {
         description: '',
         category: 'clothing'
       });
-      setSelectedImage(null);
-      setImagePreview(null);
-      
       toast({
         title: "Success",
         description: "Merchandise added successfully"
@@ -178,34 +103,17 @@ export default function MerchandiseManagement() {
         description: "Failed to add merchandise",
         variant: "destructive"
       });
-    } finally {
-      setIsUploading(false);
     }
   };
 
   const handleUpdateMerchandise = async () => {
-    setIsUploading(true);
     try {
-      let imageUrl = currentItem.image;
-      
-      if (currentItem.newImage) {
-        imageUrl = await uploadImageToFirebase(currentItem.newImage);
-        if (!imageUrl) {
-          setIsUploading(false);
-          return; // Stop if image upload failed
-        }
-      }
-
-      const { newImage, imagePreview, ...itemToUpdate } = currentItem;
-      
       const docRef = doc(db, 'merchandise', currentItem.id);
       await updateDoc(docRef, {
-        ...itemToUpdate,
-        price: Number(itemToUpdate.price),
-        quantity: Number(itemToUpdate.quantity),
-        image: imageUrl
+        ...currentItem,
+        price: Number(currentItem.price),
+        quantity: Number(currentItem.quantity)
       });
-      
       setOpenEditDialog(false);
       toast({
         title: "Success",
@@ -219,8 +127,6 @@ export default function MerchandiseManagement() {
         description: "Failed to update merchandise",
         variant: "destructive"
       });
-    } finally {
-      setIsUploading(false);
     }
   };
 
@@ -444,43 +350,6 @@ export default function MerchandiseManagement() {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="image" className="text-right">
-                Image
-              </Label>
-              <div className="col-span-3">
-                <div className="flex items-center gap-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Image
-                  </Button>
-                  <Input
-                    id="image"
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                  />
-                  {selectedImage && <span className="text-sm text-muted-foreground">{selectedImage.name}</span>}
-                </div>
-                {imagePreview && (
-                  <div className="mt-2">
-                    <div className="relative h-40 w-full overflow-hidden rounded border border-muted">
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="available" className="text-right">
                 Available
               </Label>
@@ -494,19 +363,11 @@ export default function MerchandiseManagement() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="secondary" onClick={() => {
-              setOpenAddDialog(false);
-              setSelectedImage(null);
-              setImagePreview(null);
-            }}>
+            <Button type="button" variant="secondary" onClick={() => setOpenAddDialog(false)}>
               Cancel
             </Button>
-            <Button 
-              type="button" 
-              onClick={handleAddMerchandise} 
-              disabled={isUploading}
-            >
-              {isUploading ? "Uploading..." : "Add Item"}
+            <Button type="button" onClick={handleAddMerchandise}>
+              Add Item
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -590,53 +451,6 @@ export default function MerchandiseManagement() {
                 />
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="edit-image" className="text-right">
-                  Image
-                </Label>
-                <div className="col-span-3">
-                  <div className="flex items-center gap-2">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={() => editFileInputRef.current?.click()}
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Change Image
-                    </Button>
-                    <Input
-                      id="edit-image"
-                      type="file"
-                      ref={editFileInputRef}
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handleEditImageChange}
-                    />
-                    {currentItem.newImage && <span className="text-sm text-muted-foreground">{currentItem.newImage.name}</span>}
-                  </div>
-                  <div className="mt-2">
-                    <div className="relative h-40 w-full overflow-hidden rounded border border-muted">
-                      {currentItem.imagePreview ? (
-                        <img
-                          src={currentItem.imagePreview}
-                          alt="New Preview"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : currentItem.image && currentItem.image !== 'na' ? (
-                        <img
-                          src={currentItem.image}
-                          alt={currentItem.name}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-muted">
-                          <FileImage className="h-12 w-12 text-muted-foreground" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-available" className="text-right">
                   Available
                 </Label>
@@ -654,12 +468,8 @@ export default function MerchandiseManagement() {
             <Button type="button" variant="secondary" onClick={() => setOpenEditDialog(false)}>
               Cancel
             </Button>
-            <Button 
-              type="button" 
-              onClick={handleUpdateMerchandise}
-              disabled={isUploading}
-            >
-              {isUploading ? "Uploading..." : "Save Changes"}
+            <Button type="button" onClick={handleUpdateMerchandise}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
