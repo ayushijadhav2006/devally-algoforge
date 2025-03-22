@@ -10,10 +10,10 @@ import {
   getDocs, 
   doc, 
   updateDoc, 
-  arrayUnion, 
   increment, 
   setDoc, 
-  getDoc 
+  getDoc,
+  onSnapshot
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { StarIcon, HeartIcon, ShoppingBagIcon } from "lucide-react";
 import { useLanguage } from "@/context/LanguageContext";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 const NGORecommendation = ({ userData }) => {
   const [recommendedNGO, setRecommendedNGO] = useState(null);
@@ -31,7 +32,9 @@ const NGORecommendation = ({ userData }) => {
   const [merchandise, setMerchandise] = useState(null);
   const { translations } = useLanguage();
   const user = auth.currentUser;
+  const router = useRouter();
 
+  // Fetch recommended NGO
   useEffect(() => {
     const fetchRecommendedNGO = async () => {
       if (!userData) return;
@@ -111,21 +114,32 @@ const NGORecommendation = ({ userData }) => {
       }
     };
 
+    fetchRecommendedNGO();
+
+    // Set up a listener if the user is authenticated
+    if (user?.uid && recommendedNGO) {
+      const followerRef = doc(db, "ngo", recommendedNGO.id, "followers", user.uid);
+      const unsubscribe = onSnapshot(followerRef, (snapshot) => {
+        setIsFollowing(snapshot.exists());
+      });
+
+      return () => unsubscribe();
+    }
+  }, [userData, user]);
+
+  // Set up real-time merchandise listener
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    // This will run whenever the following status changes
     const fetchMerchandise = async () => {
-      if (!user?.uid) {
-        console.log("No user logged in, skipping merchandise fetch");
-        return;
-      }
-      
       try {
-        // First get a list of NGOs the user follows
+        // Get a list of NGOs the user follows
         const followedNGOs = [];
         
         // Query for all NGOs
-        const ngoQuery = query(collection(db, "ngo"), limit(20)); // Limit for performance
+        const ngoQuery = query(collection(db, "ngo"), limit(20));
         const ngoSnapshot = await getDocs(ngoQuery);
-        
-        console.log("Found", ngoSnapshot.docs.length, "NGOs to check");
         
         // Check each NGO if the user is a follower
         await Promise.all(
@@ -134,7 +148,6 @@ const NGORecommendation = ({ userData }) => {
             const followerSnap = await getDoc(followerRef);
             
             if (followerSnap.exists()) {
-              console.log("User follows NGO:", ngoDoc.data().ngoName);
               followedNGOs.push({
                 id: ngoDoc.id,
                 ...ngoDoc.data()
@@ -143,44 +156,38 @@ const NGORecommendation = ({ userData }) => {
           })
         );
         
-        console.log("User follows", followedNGOs.length, "NGOs");
-        
-        // If user follows any NGOs, get merchandise from one of them
         if (followedNGOs.length > 0) {
           const randomNGO = followedNGOs[Math.floor(Math.random() * followedNGOs.length)];
-          console.log("Selected NGO for merchandise:", randomNGO.ngoName);
           
-          // Query for merchandise from this NGO
+          // Set up a listener for merchandise
           const merchandiseQuery = query(
             collection(db, "merchandise"),
             where("ngoId", "==", randomNGO.id),
             limit(1)
           );
           
-          const merchandiseSnapshot = await getDocs(merchandiseQuery);
+          const unsubscribe = onSnapshot(merchandiseQuery, (snapshot) => {
+            if (!snapshot.empty) {
+              const merchandiseData = {
+                id: snapshot.docs[0].id,
+                ...snapshot.docs[0].data(),
+                ngo: randomNGO
+              };
+              setMerchandise(merchandiseData);
+            } else {
+              setMerchandise(null);
+            }
+          });
           
-          if (!merchandiseSnapshot.empty) {
-            const merchandiseData = {
-              id: merchandiseSnapshot.docs[0].id,
-              ...merchandiseSnapshot.docs[0].data(),
-              ngo: randomNGO
-            };
-            console.log("Found merchandise:", merchandiseData.name);
-            setMerchandise(merchandiseData);
-          } else {
-            console.log("No merchandise found for NGO:", randomNGO.ngoName);
-          }
-        } else {
-          console.log("User doesn't follow any NGOs");
+          return () => unsubscribe();
         }
       } catch (error) {
-        console.error("Error fetching merchandise:", error);
+        console.error("Error setting up merchandise listener:", error);
       }
     };
 
-    fetchRecommendedNGO();
     fetchMerchandise();
-  }, [userData, user]);
+  }, [user, isFollowing]); // Re-run when following status changes
 
   const handleFollow = async () => {
     if (!user?.uid || !recommendedNGO || isLoading) return;
@@ -203,10 +210,78 @@ const NGORecommendation = ({ userData }) => {
       
       setIsFollowing(true);
       
+      // Immediately fetch merchandise after following
+      fetchMerchandise();
+      
     } catch (error) {
       console.error("Error following NGO:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Added this function to fetch merchandise immediately after following
+  const fetchMerchandise = async () => {
+    if (!user?.uid) return;
+    
+    try {
+      // Get a list of NGOs the user follows, including the one just followed
+      const followedNGOs = [];
+      
+      // First add the NGO we just followed
+      if (recommendedNGO) {
+        followedNGOs.push(recommendedNGO);
+      }
+      
+      // Query for other NGOs just in case
+      const ngoQuery = query(collection(db, "ngo"), limit(20));
+      const ngoSnapshot = await getDocs(ngoQuery);
+      
+      await Promise.all(
+        ngoSnapshot.docs.map(async (ngoDoc) => {
+          if (ngoDoc.id === recommendedNGO?.id) return; // Skip the one we just added
+          
+          const followerRef = doc(db, "ngo", ngoDoc.id, "followers", user.uid);
+          const followerSnap = await getDoc(followerRef);
+          
+          if (followerSnap.exists()) {
+            followedNGOs.push({
+              id: ngoDoc.id,
+              ...ngoDoc.data()
+            });
+          }
+        })
+      );
+      
+      if (followedNGOs.length > 0) {
+        const randomNGO = followedNGOs[Math.floor(Math.random() * followedNGOs.length)];
+        
+        const merchandiseQuery = query(
+          collection(db, "merchandise"),
+          where("ngoId", "==", randomNGO.id),
+          limit(1)
+        );
+        
+        const merchandiseSnapshot = await getDocs(merchandiseQuery);
+        
+        if (!merchandiseSnapshot.empty) {
+          const merchandiseData = {
+            id: merchandiseSnapshot.docs[0].id,
+            ...merchandiseSnapshot.docs[0].data(),
+            ngo: randomNGO
+          };
+          setMerchandise(merchandiseData);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching merchandise:", error);
+    }
+  };
+
+  // Navigate to NGO profile page
+  const navigateToNGOProfile = () => {
+    if (recommendedNGO?.id) {
+      router.push(`/ngo/${recommendedNGO.id}`);
     }
   };
 
@@ -219,14 +294,17 @@ const NGORecommendation = ({ userData }) => {
     <div className="space-y-8">
       {/* NGO Recommendation */}
       {recommendedNGO && (
-        <Card className="shadow-md">
+        <Card className="shadow-md hover:shadow-lg transition-shadow">
           <CardHeader className="pb-2">
             <CardTitle>
               {translations.recommended_for_you || "Recommended For You"}
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-col md:flex-row gap-4 items-start">
+            <div 
+              className="flex flex-col md:flex-row gap-4 items-start cursor-pointer"
+              onClick={navigateToNGOProfile}
+            >
               <div className="relative">
                 <Avatar className="h-20 w-20">
                   <AvatarImage src={recommendedNGO.logoUrl} alt={recommendedNGO.ngoName} />
@@ -271,7 +349,7 @@ const NGORecommendation = ({ userData }) => {
                   )}
                 </div>
                 
-                <div className="mt-4">
+                <div className="mt-4" onClick={(e) => e.stopPropagation()}>
                   <Button
                     onClick={handleFollow}
                     disabled={isFollowing || isLoading}
@@ -315,7 +393,10 @@ const NGORecommendation = ({ userData }) => {
               <div className="flex-1">
                 <div className="flex items-start justify-between">
                   <div>
-                    <Badge className="mb-2 bg-blue-100 text-blue-800 hover:bg-blue-100">
+                    <Badge 
+                      className="mb-2 bg-blue-100 text-blue-800 hover:bg-blue-100 cursor-pointer"
+                      onClick={() => merchandise.ngo?.id && router.push(`/ngo/${merchandise.ngo.id}`)}
+                    >
                       {merchandise.ngo?.ngoName || "NGO Merchandise"}
                     </Badge>
                     <h3 className="text-xl font-semibold">{merchandise.name}</h3>
