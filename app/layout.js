@@ -1,35 +1,40 @@
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "react-hot-toast";
+import FloatingNavbar from "@/components/floating-navbar";
+import { cn } from "@/lib/utils";
+import { Footer } from "@/components/footer";
+import Script from "next/script";
+import { AuthProvider } from "@/context/AuthContext";
+import WebProvider from "@/providers/WebProvider"
 import { LanguageProvider } from "@/context/LanguageContext";
-import Providers from "@/providers/WebProvider";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata = {
   title: "SMILE-SHARE",
-  description: "Smile-Share is a platform for NGOs to manage their activities and events.",
+  description: "SMILE-SHARE is a platform for NGOs to manage their activities and events.",
 };
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <Providers>
-          <LanguageProvider>
-            {children}
-          </LanguageProvider>
-        </Providers>
+    <html lang="en" suppressHydrationWarning>
+      <head />
+      <body className={cn("min-h-screen bg-background font-sans antialiased")}>
+          <WebProvider>
+            <LanguageProvider>
+              <AuthProvider>
+                <div className="relative flex min-h-screen flex-col">
+                  <main className="flex-1">
+                    {children}
+                  </main>
+                </div>
+              </AuthProvider>
+            </LanguageProvider>
+          </WebProvider>
+        <Toaster />
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="beforeInteractive"
+        />
       </body>
-    </html>
+    </html >
   );
 }
