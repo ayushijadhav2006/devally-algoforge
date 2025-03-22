@@ -12,6 +12,7 @@ import {
   LogOut,
   PackagePlus,
   Scan,
+  ShoppingCart,
 } from "lucide-react";
 import Chatbot from "@/components/chatbot";
 import { useRouter, usePathname } from "next/navigation";
@@ -162,7 +163,7 @@ const Layout = ({ children }) => {
     ProductNavItems: [
       { name: "Products", icon: PackagePlus, href: "/dashboard/ngo/products" },
       { name: "Inventory", icon: Store, href: "/dashboard/ngo/inventory" },
-      { name: "Merchandise", icon: PackagePlus, href: "/dashboard/ngo/merchandise" },
+      { name: "Merchandise", icon: ShoppingCart, href: "/dashboard/ngo/merchandise" },
     ],
 
     bottomNavItems: [
