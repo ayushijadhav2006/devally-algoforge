@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from 'react';
-import { collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, addDoc, deleteDoc, query, where, setDoc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '@/lib/firebase';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { BarChart, FileImage, Edit, Trash2, PlusCircle, ShoppingBag, LineChart, DollarSign, Package, Upload } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { getAuth } from "firebase/auth";
 
 export default function MerchandiseManagement() {
   const [merchandise, setMerchandise] = useState([]);
@@ -28,6 +29,8 @@ export default function MerchandiseManagement() {
   const [currentItem, setCurrentItem] = useState(null);
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [ngoId, setNgoId] = useState(null);
+  const [ngoCollection, setNgoCollection] = useState("ngo"); // Default to singular collection
   const fileInputRef = useRef(null);
   const editFileInputRef = useRef(null);
 
@@ -38,7 +41,8 @@ export default function MerchandiseManagement() {
     image: 'na',
     available: true,
     description: '',
-    category: 'clothing'
+    category: 'clothing',
+    otherCategory: ''
   });
 
   // Mock analytics data
@@ -56,13 +60,102 @@ export default function MerchandiseManagement() {
   });
 
   useEffect(() => {
-    fetchMerchandise();
+    // Get the currently logged in NGO's ID
+    const getCurrentNgoId = async () => {
+      try {
+        // Get the current user from Firebase Auth
+        const auth = getAuth();
+        const user = auth.currentUser;
+        
+        if (user) {
+          const userId = user.uid;
+          
+          // First approach: Check if the user document has an ngoId field
+          const userDocRef = doc(db, "users", userId);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists() && userDoc.data().ngoId) {
+            // If user document has ngoId, use it directly
+            const ngoId = userDoc.data().ngoId;
+            console.log("Found NGO ID in user document:", ngoId);
+            setNgoId(ngoId);
+            // For user documents, we need to determine which collection to use
+            // Try to find if the ngoId exists in 'ngo' collection first
+            const ngoDocRef = doc(db, "ngo", ngoId);
+            const ngoDoc = await getDoc(ngoDocRef);
+            if (ngoDoc.exists()) {
+              setNgoCollection("ngo");
+            } else {
+              // Try 'ngos' collection as fallback
+              const ngosDocRef = doc(db, "ngos", ngoId);
+              const ngosDoc = await getDoc(ngosDocRef);
+              if (ngosDoc.exists()) {
+                setNgoCollection("ngos");
+              }
+            }
+            return;
+          }
+          
+          // Second approach: Try the "ngos" collection (plural)
+          const ngosQuery = query(collection(db, "ngos"), where("userId", "==", userId));
+          const ngosSnapshot = await getDocs(ngosQuery);
+          
+          if (!ngosSnapshot.empty) {
+            const ngoDoc = ngosSnapshot.docs[0];
+            console.log("Found NGO in 'ngos' collection:", ngoDoc.id);
+            setNgoId(ngoDoc.id);
+            setNgoCollection("ngos");
+            return;
+          }
+          
+          // Third approach: Try the "ngo" collection (singular)
+          const ngoQuery = query(collection(db, "ngo"), where("userId", "==", userId));
+          const ngoSnapshot = await getDocs(ngoQuery);
+          
+          if (!ngoSnapshot.empty) {
+            const ngoDoc = ngoSnapshot.docs[0];
+            console.log("Found NGO in 'ngo' collection:", ngoDoc.id);
+            setNgoId(ngoDoc.id);
+            setNgoCollection("ngo");
+            return;
+          }
+          
+          console.error("No NGO found for current user");
+          toast({
+            title: "Error",
+            description: "Could not find NGO profile for your account",
+            variant: "destructive"
+          });
+        } else {
+          console.error("No user is logged in");
+          toast({
+            title: "Error",
+            description: "You must be logged in to manage merchandise",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error("Error getting NGO ID:", error);
+      }
+    };
+    
+    getCurrentNgoId();
   }, []);
 
+  useEffect(() => {
+    if (ngoId) {
+      fetchMerchandise();
+    }
+  }, [ngoId]);
+
   const fetchMerchandise = async () => {
+    if (!ngoId) return;
+    
     setIsLoading(true);
     try {
-      const merchCollection = collection(db, 'merchandise');
+      console.log(`Fetching merchandise from ${ngoCollection}/${ngoId}/merchandise`);
+      // Reference to the merchandise subcollection under the NGO's document
+      const merchCollection = collection(db, ngoCollection, ngoId, 'merchandise');
       const merchSnapshot = await getDocs(merchCollection);
       const merchList = merchSnapshot.docs.map(doc => ({
         id: doc.id,
@@ -110,6 +203,22 @@ export default function MerchandiseManagement() {
     }
   };
 
+  // This function prepares the currentItem for editing when the edit modal opens
+  const prepareItemForEdit = (item) => {
+    // Check if the category is one of the predefined categories
+    const predefinedCategories = ['clothing', 'accessories', 'books', 'stationery', 'other'];
+    const categoryIsCustom = !predefinedCategories.includes(item.category);
+    
+    const preparedItem = {
+      ...item,
+      // If the category is custom, set category to 'other' and otherCategory to the custom value
+      category: categoryIsCustom ? 'other' : item.category,
+      otherCategory: categoryIsCustom ? item.category : ''
+    };
+    
+    return preparedItem;
+  };
+
   const uploadImageToFirebase = async (file) => {
     if (!file) return null;
     
@@ -134,6 +243,15 @@ export default function MerchandiseManagement() {
   };
 
   const handleAddMerchandise = async () => {
+    if (!ngoId) {
+      toast({
+        title: "Error",
+        description: "NGO ID not found. Please try again later.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsUploading(true);
     try {
       let imageUrl = 'na';
@@ -146,12 +264,32 @@ export default function MerchandiseManagement() {
         }
       }
 
-      await addDoc(collection(db, 'merchandise'), {
+      // Generate a unique ID for the new merchandise
+      const merchandiseRef = doc(collection(db, ngoCollection, ngoId, 'merchandise'));
+      
+      // Handle the category - use otherCategory if category is "other"
+      const finalCategory = newItem.category === 'other' && newItem.otherCategory.trim() 
+        ? newItem.otherCategory.trim() 
+        : newItem.category;
+      
+      // Prepare the merchandise data
+      const merchandiseData = {
         ...newItem,
+        category: finalCategory, // Use the final category value
         price: Number(newItem.price),
         quantity: Number(newItem.quantity),
-        image: imageUrl
-      });
+        image: imageUrl,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ngoId: ngoId,
+        id: merchandiseRef.id // Include the ID in the document data for easier reference
+      };
+
+      // Remove the otherCategory field as it's not needed in the database
+      delete merchandiseData.otherCategory;
+
+      // Set the document data with the generated ID
+      await setDoc(merchandiseRef, merchandiseData);
       
       setOpenAddDialog(false);
       setNewItem({
@@ -161,7 +299,8 @@ export default function MerchandiseManagement() {
         image: 'na',
         available: true,
         description: '',
-        category: 'clothing'
+        category: 'clothing',
+        otherCategory: ''
       });
       setSelectedImage(null);
       setImagePreview(null);
@@ -184,6 +323,15 @@ export default function MerchandiseManagement() {
   };
 
   const handleUpdateMerchandise = async () => {
+    if (!ngoId) {
+      toast({
+        title: "Error",
+        description: "NGO ID not found. Please try again later.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     setIsUploading(true);
     try {
       let imageUrl = currentItem.image;
@@ -196,14 +344,24 @@ export default function MerchandiseManagement() {
         }
       }
 
-      const { newImage, imagePreview, ...itemToUpdate } = currentItem;
+      const { newImage, imagePreview, otherCategory, ...itemToUpdate } = currentItem;
       
-      const docRef = doc(db, 'merchandise', currentItem.id);
+      // Handle the category - use otherCategory if category is "other"
+      if (itemToUpdate.category === 'other' && otherCategory && otherCategory.trim()) {
+        itemToUpdate.category = otherCategory.trim();
+      }
+      
+      // Reference to the specific merchandise document in the NGO's subcollection
+      const docRef = doc(db, ngoCollection, ngoId, 'merchandise', currentItem.id);
+      
+      // Update the merchandise data
       await updateDoc(docRef, {
         ...itemToUpdate,
         price: Number(itemToUpdate.price),
         quantity: Number(itemToUpdate.quantity),
-        image: imageUrl
+        image: imageUrl,
+        updatedAt: new Date(),
+        ngoId: ngoId  // Ensure the NGO ID is still associated
       });
       
       setOpenEditDialog(false);
@@ -225,8 +383,18 @@ export default function MerchandiseManagement() {
   };
 
   const handleDeleteMerchandise = async () => {
+    if (!ngoId) {
+      toast({
+        title: "Error",
+        description: "NGO ID not found. Please try again later.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     try {
-      const docRef = doc(db, 'merchandise', currentItem.id);
+      // Delete from the NGO's merchandise subcollection
+      const docRef = doc(db, ngoCollection, ngoId, 'merchandise', currentItem.id);
       await deleteDoc(docRef);
       setOpenDeleteDialog(false);
       toast({
@@ -300,7 +468,7 @@ export default function MerchandiseManagement() {
                   key={item.id} 
                   item={item} 
                   onEdit={() => {
-                    setCurrentItem({...item});
+                    setCurrentItem(prepareItemForEdit({...item}));
                     setOpenEditDialog(true);
                   }}
                   onDelete={() => {
@@ -326,7 +494,7 @@ export default function MerchandiseManagement() {
                     key={item.id} 
                     item={item} 
                     onEdit={() => {
-                      setCurrentItem({...item});
+                      setCurrentItem(prepareItemForEdit({...item}));
                       setOpenEditDialog(true);
                     }}
                     onDelete={() => {
@@ -352,7 +520,7 @@ export default function MerchandiseManagement() {
                     key={item.id} 
                     item={item} 
                     onEdit={() => {
-                      setCurrentItem({...item});
+                      setCurrentItem(prepareItemForEdit({...item}));
                       setOpenEditDialog(true);
                     }}
                     onDelete={() => {
@@ -432,6 +600,23 @@ export default function MerchandiseManagement() {
                 </SelectContent>
               </Select>
             </div>
+            
+            {/* Show text input for other category */}
+            {newItem.category === 'other' && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="otherCategory" className="text-right">
+                  Specify Category
+                </Label>
+                <Input
+                  id="otherCategory"
+                  value={newItem.otherCategory}
+                  onChange={(e) => setNewItem({...newItem, otherCategory: e.target.value})}
+                  placeholder="Enter custom category"
+                  className="col-span-3"
+                />
+              </div>
+            )}
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="description" className="text-right">
                 Description
@@ -578,6 +763,23 @@ export default function MerchandiseManagement() {
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Show text input for other category in edit modal */}
+              {currentItem.category === 'other' && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="edit-otherCategory" className="text-right">
+                    Specify Category
+                  </Label>
+                  <Input
+                    id="edit-otherCategory"
+                    value={currentItem.otherCategory || ''}
+                    onChange={(e) => setCurrentItem({...currentItem, otherCategory: e.target.value})}
+                    placeholder="Enter custom category"
+                    className="col-span-3"
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-description" className="text-right">
                   Description
