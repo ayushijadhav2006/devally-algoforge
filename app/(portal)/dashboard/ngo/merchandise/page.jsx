@@ -55,7 +55,9 @@ export default function MerchandiseManagement() {
       { month: 'Apr', sales: 0 },
       { month: 'May', sales: 0 },
       { month: 'Jun', sales: 0 }
-    ]
+    ],
+    recentSales: [],
+    topBuyers: []
   });
 
   useEffect(() => {
@@ -420,13 +422,159 @@ export default function MerchandiseManagement() {
     setAnalyticData({
       totalSold,
       revenue,
-      monthlySales
+      monthlySales,
+      recentSales: [],
+      topBuyers: []
     });
+  };
+
+  const fetchRealAnalytics = async (item) => {
+    setIsLoading(true);
+    try {
+      // Fetch sales history directly from the merchandise's salesHistory subcollection
+      const salesHistoryRef = collection(db, ngoCollection, ngoId, 'merchandise', item.id, 'salesHistory');
+      const salesHistorySnapshot = await getDocs(salesHistoryRef);
+      
+      if (salesHistorySnapshot.empty) {
+        console.log("No sales history found for this merchandise");
+        // Set default values when no sales data is available
+        setAnalyticData({
+          totalSold: item.soldCount || 0,
+          revenue: 0,
+          monthlySales: [
+            { month: 'Jan', sales: 0 },
+            { month: 'Feb', sales: 0 },
+            { month: 'Mar', sales: 0 },
+            { month: 'Apr', sales: 0 },
+            { month: 'May', sales: 0 },
+            { month: 'Jun', sales: 0 }
+          ],
+          recentSales: [],
+          topBuyers: []
+        });
+        setIsLoading(false);
+        return;
+      }
+      
+      // Process sales history data
+      const salesHistory = salesHistorySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Calculate total sold and revenue
+      const totalSold = item.soldCount || salesHistory.reduce((sum, sale) => sum + sale.quantity, 0);
+      const revenue = salesHistory.reduce((sum, sale) => sum + sale.totalPrice, 0);
+      
+      // Process monthly sales data
+      const currentYear = new Date().getFullYear();
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      
+      // Initialize all months with zero sales
+      const monthlySalesMap = {};
+      monthNames.forEach(month => {
+        monthlySalesMap[month] = 0;
+      });
+      
+      // Aggregate sales by month
+      salesHistory.forEach(sale => {
+        const saleDate = sale.purchaseDate ? new Date(sale.purchaseDate.toDate()) : new Date();
+        // Only count sales from the current year
+        if (saleDate.getFullYear() === currentYear) {
+          const monthName = monthNames[saleDate.getMonth()];
+          monthlySalesMap[monthName] += sale.quantity;
+        }
+      });
+      
+      // Convert to array format for chart display
+      const monthlySales = monthNames.map(month => ({
+        month,
+        sales: monthlySalesMap[month]
+      }));
+      
+      // Get recent sales (latest 5)
+      const recentSales = [...salesHistory]
+        .sort((a, b) => {
+          const dateA = a.purchaseDate ? new Date(a.purchaseDate.toDate()) : new Date(0);
+          const dateB = b.purchaseDate ? new Date(b.purchaseDate.toDate()) : new Date(0);
+          return dateB - dateA;
+        })
+        .slice(0, 5);
+      
+      // Calculate top buyers
+      const buyerMap = {};
+      salesHistory.forEach(sale => {
+        const buyerId = sale.buyerId || 'unknown';
+        if (!buyerMap[buyerId]) {
+          buyerMap[buyerId] = {
+            buyerId,
+            customerName: sale.customerName || 'Unknown Customer',
+            totalQuantity: 0,
+            totalSpent: 0,
+            lastPurchase: null
+          };
+        }
+        
+        buyerMap[buyerId].totalQuantity += sale.quantity;
+        buyerMap[buyerId].totalSpent += sale.totalPrice;
+        
+        const saleDate = sale.purchaseDate ? new Date(sale.purchaseDate.toDate()) : null;
+        if (saleDate && (!buyerMap[buyerId].lastPurchase || saleDate > new Date(buyerMap[buyerId].lastPurchase))) {
+          buyerMap[buyerId].lastPurchase = saleDate;
+        }
+      });
+      
+      // Get top 3 buyers by quantity
+      const topBuyers = Object.values(buyerMap)
+        .sort((a, b) => b.totalQuantity - a.totalQuantity)
+        .slice(0, 3);
+      
+      setAnalyticData({
+        totalSold,
+        revenue,
+        monthlySales,
+        recentSales,
+        topBuyers
+      });
+      
+    } catch (error) {
+      console.error("Error fetching analytics data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load analytics data",
+        variant: "destructive"
+      });
+      
+      // Fallback to default values
+      setAnalyticData({
+        totalSold: item.soldCount || 0,
+        revenue: 0,
+        monthlySales: [
+          { month: 'Jan', sales: 0 },
+          { month: 'Feb', sales: 0 },
+          { month: 'Mar', sales: 0 },
+          { month: 'Apr', sales: 0 },
+          { month: 'May', sales: 0 },
+          { month: 'Jun', sales: 0 }
+        ],
+        recentSales: [],
+        topBuyers: []
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleViewAnalytics = (item) => {
     setCurrentItem(item);
-    generateMockAnalytics(item);
+    
+    // Use real analytics data if available, otherwise use mock data
+    if (ngoId) {
+      fetchRealAnalytics(item);
+    } else {
+      generateMockAnalytics(item);
+    }
+    
     setOpenAnalyticsDialog(true);
   };
 
@@ -784,76 +932,138 @@ export default function MerchandiseManagement() {
 
       {/* Analytics Dialog */}
       <Dialog open={openAnalyticsDialog} onOpenChange={setOpenAnalyticsDialog}>
-        <DialogContent className="sm:max-w-[600px]">
+        <DialogContent className="sm:max-w-[900px]">
           <DialogHeader>
             <DialogTitle>Sales Analytics: {currentItem?.name}</DialogTitle>
             <DialogDescription>
               View sales performance for this merchandise item.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Total Sold</p>
-                      <p className="text-2xl font-bold">{analyticData.totalSold}</p>
-                    </div>
-                    <ShoppingBag className="h-8 w-8 text-primary" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Revenue</p>
-                      <p className="text-2xl font-bold">₹{analyticData.revenue}</p>
-                    </div>
-                    <DollarSign className="h-8 w-8 text-primary" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Current Stock</p>
-                      <p className="text-2xl font-bold">{currentItem?.quantity || 0}</p>
-                    </div>
-                    <Package className="h-8 w-8 text-primary" />
-                  </div>
-                </CardContent>
-              </Card>
+          {isLoading ? (
+            <div className="py-6 text-center">
+              <p>Loading analytics data...</p>
             </div>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Sales</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[200px] w-full">
-                  {/* A simple bar chart visualization - in a real app, you'd use a proper chart library */}
-                  <div className="flex h-full items-end space-x-2">
-                    {analyticData.monthlySales.map((month) => (
-                      <div key={month.month} className="flex flex-col items-center flex-1">
-                        <div 
-                          className="w-full bg-primary rounded-t" 
-                          style={{ 
-                            height: `${(month.sales / Math.max(...analyticData.monthlySales.map(m => m.sales))) * 150}px`,
-                            minHeight: month.sales > 0 ? '10px' : '0px'
-                          }}
-                        />
-                        <div className="text-xs mt-2">{month.month}</div>
-                        <div className="text-xs font-medium">{month.sales}</div>
+          ) : (
+            <div className="py-4">
+              {/* Summary Stats Cards */}
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Total Sold</p>
+                        <p className="text-2xl font-bold">{analyticData.totalSold}</p>
                       </div>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+                      <ShoppingBag className="h-8 w-8 text-primary" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Revenue</p>
+                        <p className="text-2xl font-bold">₹{analyticData.revenue.toFixed(2)}</p>
+                      </div>
+                      <DollarSign className="h-8 w-8 text-primary" />
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Current Stock</p>
+                        <p className="text-2xl font-bold">{currentItem?.quantity || 0}</p>
+                      </div>
+                      <Package className="h-8 w-8 text-primary" />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              
+              {/* Main Content Area - 2 Columns */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Column - Monthly Sales */}
+                <Card className="md:row-span-2 h-full">
+                  <CardHeader>
+                    <CardTitle>Monthly Sales ({new Date().getFullYear()})</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-[300px] w-full">
+                      {/* A simple bar chart visualization - in a real app, you'd use a proper chart library */}
+                      <div className="flex h-full items-end space-x-2">
+                        {analyticData.monthlySales.map((month) => (
+                          <div key={month.month} className="flex flex-col items-center flex-1">
+                            <div 
+                              className="w-full bg-primary rounded-t" 
+                              style={{ 
+                                height: `${(month.sales / Math.max(...analyticData.monthlySales.map(m => m.sales) || 1)) * 250}px`,
+                                minHeight: month.sales > 0 ? '10px' : '0px'
+                              }}
+                            />
+                            <div className="text-xs mt-2">{month.month}</div>
+                            <div className="text-xs font-medium">{month.sales}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
+                {/* Right Column - Top Section */}
+                {analyticData.recentSales.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Recent Sales</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {analyticData.recentSales.map((sale, index) => {
+                          const date = sale.purchaseDate ? new Date(sale.purchaseDate.toDate()) : null;
+                          return (
+                            <div key={index} className="flex justify-between items-center border-b pb-2">
+                              <div>
+                                <p className="font-medium">{sale.customerName || 'Unknown Customer'}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {date ? date.toLocaleDateString() : 'Unknown date'} • Qty: {sale.quantity}
+                                </p>
+                              </div>
+                              <p className="font-medium">₹{sale.totalPrice.toFixed(2)}</p>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* Right Column - Bottom Section */}
+                {analyticData.topBuyers.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Top Buyers</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {analyticData.topBuyers.map((buyer, index) => (
+                          <div key={index} className="flex justify-between items-center border-b pb-2">
+                            <div>
+                              <p className="font-medium">{buyer.customerName}</p>
+                              <p className="text-sm text-muted-foreground">
+                                Total purchases: {buyer.totalQuantity} items
+                              </p>
+                            </div>
+                            <p className="font-medium">₹{buyer.totalSpent.toFixed(2)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          )}
           <DialogFooter>
             <Button type="button" onClick={() => setOpenAnalyticsDialog(false)}>
               Close

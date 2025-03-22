@@ -7,6 +7,7 @@ import Script from "next/script";
 import { AuthProvider } from "@/context/AuthContext";
 import WebProvider from "@/providers/WebProvider"
 import { LanguageProvider } from "@/context/LanguageContext";
+import { GamificationProvider } from "@/context/GamificationContext";
 
 export const metadata = {
   title: "SMILE-SHARE",
@@ -21,11 +22,13 @@ export default function RootLayout({ children }) {
           <WebProvider>
             <LanguageProvider>
               <AuthProvider>
-                <div className="relative flex min-h-screen flex-col">
-                  <main className="flex-1">
-                    {children}
-                  </main>
-                </div>
+                <GamificationProvider>
+                  <div className="relative flex min-h-screen flex-col">
+                    <main className="flex-1">
+                      {children}
+                    </main>
+                  </div>
+                </GamificationProvider>
               </AuthProvider>
             </LanguageProvider>
           </WebProvider>

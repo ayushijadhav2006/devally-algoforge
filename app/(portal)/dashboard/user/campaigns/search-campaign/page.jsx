@@ -20,6 +20,7 @@ import { getDoc, doc, updateDoc, increment } from 'firebase/firestore';
 import { collection } from 'firebase/firestore';
 import { setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { useGamification } from '@/context/GamificationContext';
 
 export default function UserCampaignsPage() {
   const [campaigns, setCampaigns] = useState([]);
@@ -38,6 +39,7 @@ export default function UserCampaignsPage() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showTranslationModal, setShowTranslationModal] = useState(false);
   const { language, translations } = useLanguage();
+  const { recordDonation } = useGamification();
   
   const categories = [
     'Environmental',
@@ -265,6 +267,49 @@ export default function UserCampaignsPage() {
         totalDonated: increment(parseFloat(donationAmount))
       });
 
+      // Record donation in gamification system
+      try {
+        const gamificationData = {
+          amount: parseFloat(donationAmount),
+          campaignId: selectedCampaign.id,
+          ngoId: selectedCampaign.ngoId,
+          timestamp: new Date().toISOString()
+        };
+        
+        const gamificationResult = await recordDonation(gamificationData);
+        
+        if (gamificationResult?.pointsAwarded) {
+          toast.success(`Thank you for your donation! You earned ${gamificationResult.pointsAwarded} points!`);
+          
+          // Check if any new badges were earned
+          if (gamificationResult.newBadges && gamificationResult.newBadges.length > 0) {
+            // Display toast for each new badge
+            gamificationResult.newBadges.forEach(badge => {
+              setTimeout(() => {
+                toast.success(`🏆 New badge earned: ${badge.name}!`, {
+                  duration: 5000,
+                  style: {
+                    border: '1px solid #10B981',
+                    padding: '16px',
+                    color: '#064E3B',
+                  },
+                  iconTheme: {
+                    primary: '#10B981',
+                    secondary: '#FFFFFF',
+                  },
+                });
+              }, 1000); // Show badge notifications with a slight delay
+            });
+          }
+        } else {
+          toast.success("Thank you for your donation!");
+        }
+      } catch (gamificationError) {
+        console.error("Error recording gamification:", gamificationError);
+        // Still show success even if gamification fails
+        toast.success("Thank you for your donation!");
+      }
+
       // Update local state
       setCampaigns(prev => 
         prev.map(camp => 
@@ -276,8 +321,7 @@ export default function UserCampaignsPage() {
             : camp
         )
       );
-
-      toast.success("Thank you for your donation!");
+      
       setDonationAmount('');
       setIsDonateModalOpen(false);
       
