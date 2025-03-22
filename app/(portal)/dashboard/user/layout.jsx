@@ -14,6 +14,7 @@ import {
   IndianRupee,
   ReceiptIndianRupee,
   Users,
+  ShieldQuestion ,
 } from "lucide-react";
 import Chatbot from "@/components/chatbot";
 import { useRouter } from "next/navigation";
@@ -45,6 +46,11 @@ const NavConfig = {
       name: "My Donations",
       icon: IndianRupee,
       href: "/dashboard/user/donations",
+    },
+    {
+      name: "Find NGOs",
+      icon: ShieldQuestion,
+      href: "/ngo",
     },
   ],
   bottomNavItems: [
