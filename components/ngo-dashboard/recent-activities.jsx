@@ -112,7 +112,7 @@ export function RecentActivities() {
   const getActivityDescription = (activity) => {
     switch (activity.type) {
       case "event":
-        return `${translations.created || "Created"} "${activity.name}" ${translations.in_location || "in"} ${activity.location}`;
+        return `${translations.created || "Created"} "${activity.name}" ${translations.in_location || "in"} ${activity.location?.address || translations.no_location || "No location"}`;
       case "volunteer":
         return `${translations.volunteers || "Volunteers"}: ${activity.volunteers.current}/${activity.volunteers.needed}`;
       default:
