@@ -53,7 +53,7 @@ const AuthLayout = ({ children }) => {
                 className="rounded-full"
               />
             </a>
-            <h1 className="text-3xl font-serif p-4">Welcome to NGO-Connect!</h1>
+            <h1 className="text-3xl font-serif p-4">Welcome to Smile-Share!</h1>
             <p className="text-lg font-serif pl-4">
               where every detail is crafted to make your experience
               extraordinary
