@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Menu,
   Globe,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
@@ -434,6 +435,35 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
               </div>
             )}
           </div>
+
+          {/* Chat with PDF Button */}
+          {type === "ngo" && (
+            <div className="pdf-chat-section">
+              {isOpen && <div className="my-4 border-t border-gray-200" />}
+              <ul className="space-y-2">
+                <li>
+                  <Link
+                    href="/dashboard/ngo/chat-report"
+                    id="nav-chat-report"
+                    className={cn(
+                      "flex items-center rounded-lg p-2 text-gray-700 transition-colors duration-200",
+                      pathname === "/dashboard/ngo/chat-report"
+                        ? "bg-[#1CAC78] text-white"
+                        : "hover:bg-[#1CAC78] hover:bg-opacity-10 hover:text-[#1CAC78]",
+                      !isOpen && "justify-center"
+                    )}
+                    onClick={() => {
+                      if (isMobile) setIsOpen(false);
+                    }}
+                  >
+                    <FileText className="h-6 w-6" />
+                    {isOpen && <span className="ml-3">{translateNavItem("Chat with PDF")}</span>}
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          )}
+
           <div className="mt-auto bottom-nav-section">
             {isOpen && <div className="my-4 border-t border-gray-200" />}
             {renderNavItems(navConfig.bottomNavItems, "bottom-nav-items")}

@@ -2,19 +2,40 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CheckCircleIcon, CreditCard } from "lucide-react";
+import {
+  CheckCircleIcon,
+  CreditCard,
+  Building,
+  Wallet,
+  MessageSquare,
+  KeyRound,
+  Lock,
+  ArrowRight,
+  AlertCircle,
+  CheckCircle,
+  Loader2,
+  BanknoteIcon,
+} from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import React, { useState, useEffect } from "react";
 import { db } from "@/lib/firebase"; // Import Firestore
-import { doc, updateDoc, onSnapshot, getDoc } from "firebase/firestore"; // Import updateDoc, onSnapshot, and getDoc functions
+import { doc, updateDoc, getDoc } from "firebase/firestore"; // Import updateDoc and getDoc functions
 import toast from "react-hot-toast";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { useAccount, useDisconnect, useEnsAvatar, useEnsName } from "wagmi";
+import { useAccount } from "wagmi";
 import { useWriteContract, useReadContract } from "wagmi";
 import { SuperAdminABI } from "@/constants/contract";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const RequiredLabel = ({ children }) => (
-  <Label className="flex items-center gap-1">
+  <Label className="flex items-center gap-1 text-sm font-medium">
     <span className="text-red-500">*</span>
     {children}
   </Label>
@@ -37,6 +58,9 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     },
     acknowledgmentMessage: "",
   });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const { data: hash, isPending, writeContract } = useWriteContract();
   const { address: walletAddress, isConnected } = useAccount();
@@ -58,18 +82,28 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
       ? null
       : ngoOwnerAddContract;
 
-  console.log("NGO OWNER ADDRESS", ngoOwnerAddContract);
-
+  // Fetch donation data once on component mount
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, "ngo", ngoId), (doc) => {
-      if (doc.exists() && doc.data()?.donationsData) {
-        setDonationsData(doc.data().donationsData);
-      }
-    });
+    const fetchDonationData = async () => {
+      try {
+        setIsLoading(true);
+        const docRef = doc(db, "ngo", ngoId);
+        const docSnap = await getDoc(docRef);
 
-    return () => unsubscribe(); // Cleanup subscription on unmount
+        if (docSnap.exists() && docSnap.data()?.donationsData) {
+          setDonationsData(docSnap.data().donationsData);
+        }
+      } catch (error) {
+        toast.error("Failed to load donation settings");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDonationData();
   }, [ngoId]);
 
+  // Update cryptoWalletAddress when wallet connection changes
   useEffect(() => {
     if (!isConnected) {
       setDonationsData((prev) => ({
@@ -84,33 +118,38 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     }
   }, [walletAddress, isConnected]);
 
+  // Update contract address in Firestore when it changes
   useEffect(() => {
     const updateContractAddress = async () => {
       if (!ngoId || !formattedNgoOwnerContract) return;
 
-      // Get current Firestore data
-      const docRef = doc(db, "ngo", ngoId);
-      const docSnap = await getDoc(docRef);
+      try {
+        // Get current Firestore data
+        const docRef = doc(db, "ngo", ngoId);
+        const docSnap = await getDoc(docRef);
 
-      if (docSnap.exists()) {
-        const firestoreContractAddress =
-          docSnap.data()?.donationsData?.ngoOwnerAddContract;
+        if (docSnap.exists()) {
+          const firestoreContractAddress =
+            docSnap.data()?.donationsData?.ngoOwnerAddContract;
 
-        // Check if addresses differ and it's not a zero-address-to-null case
-        const isZeroAddressCase =
-          ngoOwnerAddContract ===
-            "0x0000000000000000000000000000000000000000" &&
-          firestoreContractAddress === null;
+          // Check if addresses differ and it's not a zero-address-to-null case
+          const isZeroAddressCase =
+            ngoOwnerAddContract ===
+              "0x0000000000000000000000000000000000000000" &&
+            firestoreContractAddress === null;
 
-        if (
-          firestoreContractAddress !== formattedNgoOwnerContract &&
-          !isZeroAddressCase
-        ) {
-          await updateDoc(docRef, {
-            "donationsData.ngoOwnerAddContract": formattedNgoOwnerContract,
-          });
-          console.log("Contract address updated in Firestore");
+          if (
+            firestoreContractAddress !== formattedNgoOwnerContract &&
+            !isZeroAddressCase
+          ) {
+            await updateDoc(docRef, {
+              "donationsData.ngoOwnerAddContract": formattedNgoOwnerContract,
+            });
+            toast.success("Wallet contract updated successfully");
+          }
         }
+      } catch (error) {
+        toast.error("Failed to update contract address");
       }
     };
 
@@ -128,13 +167,17 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
         functionName: "createNGO",
         args: [walletAddress, "0xAbFb2AeF4aAC335Cda2CeD2ddd8A6521047e8ddF"],
       });
+
+      toast.success("NGO contract creation initiated");
+      return true;
     } catch (error) {
-      console.error("Error creating NGO contract:", error);
       toast.error("Failed to create NGO contract");
+      return false;
     }
   };
 
   const handleSave = async () => {
+    // Validation
     if (!donationsData.razorpayKeyId || !donationsData.razorpayKeySecret) {
       toast.error("Razorpay Key ID and Secret are required.");
       return;
@@ -154,45 +197,63 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
       return;
     }
 
+    // Only check for wallet connection if crypto transfers are enabled
     if (donationsData.isCryptoTransferEnabled && !isConnected) {
-      toast.error("Crypto wallet address is required.");
+      toast.error("Please connect your wallet to enable crypto transfers.");
       return;
     }
 
-    console.log("DONATIONDATA", donationsData);
-
-    if (!donationsData.isCryptoTransferEnabled) {
-      donationsData.cryptoWalletAddress = null;
-    }
+    setIsSaving(true);
+    setSaveSuccess(false);
 
     try {
-      // Check if contract address is zero/null and create NGO if needed
-      if (!formattedNgoOwnerContract) {
-        await addNgoInContract();
-        // Wait for transaction to be mined before proceeding
-        await new Promise((resolve) => setTimeout(resolve, 5000)); // Add delay to allow contract creation
-      }
+      let updatedDonationsData = { ...donationsData };
 
-      // Update the donations data with wallet and contract addresses
-      const updatedDonationsData = {
-        ...donationsData,
-        ngoOwnerAdd: walletAddress,
-        ngoOwnerAddContract: formattedNgoOwnerContract,
-      };
+      // Handle crypto-related data based on whether it's enabled
+      if (updatedDonationsData.isCryptoTransferEnabled) {
+        // Only attempt contract creation if crypto is enabled
+        if (!formattedNgoOwnerContract) {
+          const success = await addNgoInContract();
+          if (!success) {
+            setIsSaving(false);
+            return;
+          }
+          // Wait for transaction to be mined before proceeding
+          await new Promise((resolve) => setTimeout(resolve, 5000)); // Add delay to allow contract creation
+        }
+
+        // Add wallet and contract addresses when crypto is enabled
+        updatedDonationsData = {
+          ...updatedDonationsData,
+          ngoOwnerAdd: walletAddress,
+          ngoOwnerAddContract: formattedNgoOwnerContract,
+        };
+      } else {
+        // If crypto is disabled, remove related fields
+        updatedDonationsData.cryptoWalletAddress = null;
+        updatedDonationsData.ngoOwnerAdd = null;
+        updatedDonationsData.ngoOwnerAddContract = null;
+      }
 
       await updateDoc(doc(db, "ngo", ngoId), {
         donationsData: updatedDonationsData,
       });
 
       toast.success("Donation settings updated successfully!");
+      setSaveSuccess(true);
+
+      // Reset success message after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
-      console.error("Error updating donation settings: ", error);
       toast.error("Failed to update donation settings.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
   const handleChange = (e, key) => {
     setDonationsData((prev) => ({ ...prev, [key]: e.target.value }));
+    setSaveSuccess(false);
   };
 
   const handleBankTransferChange = (e, key) => {
@@ -213,6 +274,8 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
         [key]: e.target.value,
       },
     }));
+
+    setSaveSuccess(false);
   };
 
   const toggleBankTransfer = () => {
@@ -239,6 +302,8 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
         isBankTransferEnabled: !prev.isBankTransferEnabled,
       }));
     }
+
+    setSaveSuccess(false);
   };
 
   const toggleCryptoTransfer = () => {
@@ -246,10 +311,9 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
       ...prev,
       isCryptoTransferEnabled: !prev.isCryptoTransferEnabled,
     }));
-  };
 
-  // NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_9xch4WbEcXUxCT
-  // RAZORPAY_KEY_SECRET=LpFjSLwn631qJf7fZwNvNuKB
+    setSaveSuccess(false);
+  };
 
   const shouldDisableInputs =
     (verificationStatus === "verified" && approvalStatus === "verified") ||
@@ -258,250 +322,404 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
   const pendingTitle =
     "You cannot update the profile while the verification is in progress";
 
+  const getVerificationStatusBadge = () => {
+    if (verificationStatus === "verified" && approvalStatus === "verified") {
+      return (
+        <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+          <CheckCircle className="w-4 h-4 mr-1" /> Verified
+        </div>
+      );
+    } else if (
+      verificationStatus === "pending" ||
+      approvalStatus === "pending"
+    ) {
+      return (
+        <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800">
+          <AlertCircle className="w-4 h-4 mr-1" /> Pending Verification
+        </div>
+      );
+    } else {
+      return (
+        <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+          <AlertCircle className="w-4 h-4 mr-1" /> Not Verified
+        </div>
+      );
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-[#1CAC78]" />
+      </div>
+    );
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Donation & Payout Settings</CardTitle>
-        <div className="text-sm text-gray-500 mt-2">
-          <span className="text-red-500">*</span> Required fields
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <RequiredLabel>Razorpay Credentials</RequiredLabel>
-          <Input
-            placeholder="Razorpay Key ID"
-            value={donationsData.razorpayKeyId}
-            onChange={(e) => handleChange(e, "razorpayKeyId")}
-            className="border-gray-300"
-            required
-            disabled={shouldDisableInputs}
-            title={shouldDisableInputs ? pendingTitle : "Your Razorpay Key ID"}
-          />
-          <Input
-            placeholder="Razorpay Key Secret"
-            value={donationsData.razorpayKeySecret}
-            onChange={(e) => handleChange(e, "razorpayKeySecret")}
-            className="border-gray-300"
-            required
-            disabled={shouldDisableInputs}
-            title={
-              shouldDisableInputs ? pendingTitle : "Your Razorpay Key Secret"
-            }
-          />
-        </div>
-        <div className="space-y-2">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-            <Label className="flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={donationsData.isBankTransferEnabled}
-                onChange={toggleBankTransfer}
-                className="mr-2"
-                disabled={shouldDisableInputs}
-                title={
-                  shouldDisableInputs
-                    ? pendingTitle
-                    : "Enable bank transfer option for donors"
-                }
-              />
-              Enable Bank Transfers
-            </Label>
+    <div className="mx-auto">
+      <Card className="shadow-md border-0 overflow-hidden">
+        <CardHeader className="pb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <CreditCard className="h-6 w-6" />
+              <CardTitle className="text-xl">
+                Donation & Payout Settings
+              </CardTitle>
+            </div>
+            {getVerificationStatusBadge()}
           </div>
-          {donationsData.isBankTransferEnabled && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-2 gap-y-4">
-              <div className="space-y-1">
-                <RequiredLabel>Account Holder Name</RequiredLabel>
-                <Input
-                  placeholder="Account Holder Name"
-                  value={
-                    donationsData.bankTransferDetails?.accountHolderName || ""
-                  }
-                  onChange={(e) =>
-                    handleBankTransferChange(e, "accountHolderName")
-                  }
-                  className="border-gray-300"
-                  required
-                  disabled={shouldDisableInputs}
-                  title={
-                    shouldDisableInputs
-                      ? pendingTitle
-                      : "Name as it appears on your bank account"
-                  }
-                />
+          <p className="mt-2 text-sm">
+            Configure payment methods and settings for accepting donations
+          </p>
+        </CardHeader>
+
+        <CardContent className="p-6 space-y-8">
+          {/* Razorpay Section */}
+          <section className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-blue-50 rounded-full">
+                <KeyRound className="h-5 w-5 text-blue-500" />
+              </div>
+              <h3 className="text-lg font-medium">Razorpay API Keys</h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-start space-x-3 p-3 rounded-lg bg-gray-50">
+                <AlertCircle className="h-5 w-5 text-gray-500 mt-0.5" />
+                <p className="text-sm text-gray-600">
+                  Enter your Razorpay API keys to enable online payment
+                  processing. You can find these in your Razorpay dashboard.
+                </p>
               </div>
 
-              <div className="space-y-1">
-                <RequiredLabel>Bank Name</RequiredLabel>
-                <Input
-                  placeholder="Bank Name"
-                  value={donationsData.bankTransferDetails?.bankName || ""}
-                  onChange={(e) => handleBankTransferChange(e, "bankName")}
-                  className="border-gray-300"
-                  required
-                  disabled={shouldDisableInputs}
-                  title={
-                    shouldDisableInputs ? pendingTitle : "Name of your bank"
-                  }
-                />
-              </div>
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-2">
+                  <RequiredLabel>Razorpay Key ID</RequiredLabel>
+                  <div className="relative">
+                    <Input
+                      placeholder="rzp_live_xxxxxxxxxxxxxxx"
+                      value={donationsData.razorpayKeyId}
+                      onChange={(e) => handleChange(e, "razorpayKeyId")}
+                      className="border-gray-300 pl-8"
+                      required
+                      disabled={shouldDisableInputs}
+                      title={
+                        shouldDisableInputs
+                          ? pendingTitle
+                          : "Your Razorpay Key ID"
+                      }
+                    />
+                    <KeyRound className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  </div>
+                </div>
 
-              <div className="space-y-1">
-                <RequiredLabel>Branch Name & Address</RequiredLabel>
-                <Input
-                  placeholder="Branch Name & Address"
-                  value={
-                    donationsData.bankTransferDetails?.branchNameAddress || ""
-                  }
-                  onChange={(e) =>
-                    handleBankTransferChange(e, "branchNameAddress")
-                  }
-                  className="border-gray-300"
-                  required
-                  disabled={shouldDisableInputs}
-                  title={
-                    shouldDisableInputs
-                      ? pendingTitle
-                      : "Branch name and address of your bank"
-                  }
-                />
-              </div>
-
-              <div className="space-y-1">
-                <RequiredLabel>Account Number</RequiredLabel>
-                <Input
-                  placeholder="Account Number"
-                  value={donationsData.bankTransferDetails?.accountNumber || ""}
-                  onChange={(e) => handleBankTransferChange(e, "accountNumber")}
-                  className="border-gray-300"
-                  required
-                  disabled={shouldDisableInputs}
-                  title={
-                    shouldDisableInputs
-                      ? pendingTitle
-                      : "Your bank account number"
-                  }
-                />
-              </div>
-
-              <div className="space-y-1">
-                <RequiredLabel>Account Type</RequiredLabel>
-                <Input
-                  placeholder="Account Type (Savings/Current)"
-                  value={donationsData.bankTransferDetails?.accountType || ""}
-                  onChange={(e) => handleBankTransferChange(e, "accountType")}
-                  className="border-gray-300"
-                  required
-                  disabled={shouldDisableInputs}
-                  title={
-                    shouldDisableInputs
-                      ? pendingTitle
-                      : "Type of account (Savings/Current)"
-                  }
-                />
-              </div>
-
-              <div className="space-y-1">
-                <RequiredLabel>IFSC Code</RequiredLabel>
-                <Input
-                  placeholder="IFSC Code"
-                  value={donationsData.bankTransferDetails?.ifscCode || ""}
-                  onChange={(e) => handleBankTransferChange(e, "ifscCode")}
-                  className="border-gray-300"
-                  required
-                  disabled={shouldDisableInputs}
-                  title={
-                    shouldDisableInputs
-                      ? pendingTitle
-                      : "IFSC code of your bank branch"
-                  }
-                />
+                <div className="space-y-2">
+                  <RequiredLabel>Razorpay Key Secret</RequiredLabel>
+                  <div className="relative">
+                    <Input
+                      placeholder="xxxxxxxxxxxxxxxxxxxxxxxx"
+                      value={donationsData.razorpayKeySecret}
+                      onChange={(e) => handleChange(e, "razorpayKeySecret")}
+                      className="border-gray-300 pl-8"
+                      type="password"
+                      required
+                      disabled={shouldDisableInputs}
+                      title={
+                        shouldDisableInputs
+                          ? pendingTitle
+                          : "Your Razorpay Key Secret"
+                      }
+                    />
+                    <Lock className="absolute left-2.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  </div>
+                </div>
               </div>
             </div>
-          )}
-        </div>
+          </section>
 
-        <div className="space-y-2">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
-            <Label className="flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={donationsData.isCryptoTransferEnabled}
-                onChange={toggleCryptoTransfer}
-                className="mr-2"
-                disabled={shouldDisableInputs}
-                title={
-                  shouldDisableInputs
-                    ? pendingTitle
-                    : "Enable cryptocurrency donations"
-                }
-              />
-              Enable Crypto Transfers
-            </Label>
-          </div>
-          {donationsData.isCryptoTransferEnabled && (
-            <div className="w-full flex items-center gap-4">
-              {!shouldDisableInputs && isConnected && (
-                <Input
-                  placeholder="Crypto Wallet Address"
-                  value={donationsData.cryptoWalletAddress || walletAddress}
-                  onChange={(e) => handleChange(e, "cryptoWalletAddress")}
-                  className="border-gray-300 w-fit"
-                  required
-                  readOnly
+          {/* Bank Transfer Section */}
+          <section className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-violet-50 rounded-full">
+                <Building className="h-5 w-5 text-violet-500" />
+              </div>
+              <h3 className="text-lg font-medium">Bank Transfer</h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center p-4 bg-gray-50 rounded-lg">
+                <Switch
+                  id="bank-transfer"
+                  className="data-[state=checked]:bg-[#1CAC78]"
+                  checked={donationsData.isBankTransferEnabled}
+                  onCheckedChange={toggleBankTransfer}
                   disabled={shouldDisableInputs}
-                  title={
-                    shouldDisableInputs
-                      ? pendingTitle
-                      : "Your connected wallet address"
-                  }
                 />
-              )}
+                <Label htmlFor="bank-transfer" className="ml-3 font-medium">
+                  {donationsData.isBankTransferEnabled
+                    ? "Bank Transfer Enabled"
+                    : "Enable Bank Transfer Option"}
+                </Label>
+              </div>
 
-              {(isConnected || !formattedNgoOwnerContract) && (
-                <div className="w-fit flex items-center justify-center">
-                  <ConnectButton />
-                </div>
-              )}
+              {donationsData.isBankTransferEnabled && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-6 mt-4 p-4 border rounded-lg bg-gray-50">
+                  <div className="space-y-2">
+                    <RequiredLabel>Account Holder Name</RequiredLabel>
+                    <Input
+                      placeholder="Full name on account"
+                      value={
+                        donationsData.bankTransferDetails?.accountHolderName ||
+                        ""
+                      }
+                      onChange={(e) =>
+                        handleBankTransferChange(e, "accountHolderName")
+                      }
+                      className="border-gray-300 bg-white"
+                      required
+                      disabled={shouldDisableInputs}
+                    />
+                  </div>
 
-              {isConnected && formattedNgoOwnerContract && (
-                <div className="w-fit flex items-center justify-center gap-2">
-                  <CheckCircleIcon className="w-4 h-4 text-green-500" />
-                  <span className="text-sm">
-                    Contract Address: {formattedNgoOwnerContract}
-                  </span>
+                  <div className="space-y-2">
+                    <RequiredLabel>Bank Name</RequiredLabel>
+                    <Input
+                      placeholder="Name of your bank"
+                      value={donationsData.bankTransferDetails?.bankName || ""}
+                      onChange={(e) => handleBankTransferChange(e, "bankName")}
+                      className="border-gray-300 bg-white"
+                      required
+                      disabled={shouldDisableInputs}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <RequiredLabel>Branch Name & Address</RequiredLabel>
+                    <Input
+                      placeholder="Branch location details"
+                      value={
+                        donationsData.bankTransferDetails?.branchNameAddress ||
+                        ""
+                      }
+                      onChange={(e) =>
+                        handleBankTransferChange(e, "branchNameAddress")
+                      }
+                      className="border-gray-300 bg-white"
+                      required
+                      disabled={shouldDisableInputs}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <RequiredLabel>Account Number</RequiredLabel>
+                    <Input
+                      placeholder="Your account number"
+                      value={
+                        donationsData.bankTransferDetails?.accountNumber || ""
+                      }
+                      onChange={(e) =>
+                        handleBankTransferChange(e, "accountNumber")
+                      }
+                      className="border-gray-300 bg-white"
+                      required
+                      disabled={shouldDisableInputs}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <RequiredLabel>Account Type</RequiredLabel>
+                    <Input
+                      placeholder="Savings/Current"
+                      value={
+                        donationsData.bankTransferDetails?.accountType || ""
+                      }
+                      onChange={(e) =>
+                        handleBankTransferChange(e, "accountType")
+                      }
+                      className="border-gray-300 bg-white"
+                      required
+                      disabled={shouldDisableInputs}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <RequiredLabel>IFSC Code</RequiredLabel>
+                    <Input
+                      placeholder="Branch IFSC code"
+                      value={donationsData.bankTransferDetails?.ifscCode || ""}
+                      onChange={(e) => handleBankTransferChange(e, "ifscCode")}
+                      className="border-gray-300 bg-white"
+                      required
+                      disabled={shouldDisableInputs}
+                    />
+                  </div>
                 </div>
               )}
             </div>
+          </section>
+
+          {/* Crypto Transfer Section */}
+          <section className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-emerald-50 rounded-full">
+                <Wallet className="h-5 w-5 text-emerald-500" />
+              </div>
+              <h3 className="text-lg font-medium">Cryptocurrency</h3>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center p-4 bg-gray-50 rounded-lg">
+                <Switch
+                  id="crypto-transfer"
+                  className="data-[state=checked]:bg-[#1CAC78]"
+                  checked={donationsData.isCryptoTransferEnabled}
+                  onCheckedChange={toggleCryptoTransfer}
+                  disabled={shouldDisableInputs}
+                />
+                <Label htmlFor="crypto-transfer" className="ml-3 font-medium">
+                  {donationsData.isCryptoTransferEnabled
+                    ? "Cryptocurrency Donations Enabled"
+                    : "Enable Cryptocurrency Donations"}
+                </Label>
+              </div>
+
+              {donationsData.isCryptoTransferEnabled && (
+                <div className="space-y-4 mt-4 p-4 border rounded-lg bg-gray-50">
+                  <div className="space-y-2">
+                    <RequiredLabel>Connect Wallet</RequiredLabel>
+                    <p className="text-sm text-gray-600 mb-3">
+                      Connect your Ethereum wallet to receive crypto donations.
+                      This will create a smart contract for your organization.
+                    </p>
+
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                      <div className="w-fit">
+                        <ConnectButton />
+                      </div>
+
+                      {isConnected && (
+                        <div className="flex items-center px-3 py-2 bg-blue-50 rounded-md text-blue-700 border border-blue-200 max-w-md break-all">
+                          <p className="text-sm font-mono">{walletAddress}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {isConnected && formattedNgoOwnerContract && (
+                    <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex items-center">
+                        <CheckCircleIcon className="w-5 h-5 text-green-600 mr-2" />
+                        <span className="font-medium text-green-800">
+                          Contract Deployed
+                        </span>
+                      </div>
+                      <p className="text-sm text-green-700 mt-1">
+                        Your donation contract has been deployed successfully.
+                      </p>
+                      <div className="mt-2 px-3 py-2 bg-white rounded border border-green-200">
+                        <p className="text-xs font-mono text-green-700 break-all">
+                          {formattedNgoOwnerContract}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {isConnected && !formattedNgoOwnerContract && (
+                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center">
+                      <AlertCircle className="w-5 h-5 text-yellow-600 mr-2" />
+                      <p className="text-sm text-yellow-700">
+                        No contract deployed yet. Save your settings to create a
+                        contract.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Acknowledgment Message Section */}
+          <section className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-2 bg-gray-100 rounded-full">
+                <MessageSquare className="h-5 w-5 text-gray-600" />
+              </div>
+              <h3 className="text-lg font-medium">Donation Acknowledgment</h3>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Customize the thank you message that donors will see after their
+                donation is complete.
+              </p>
+
+              <Textarea
+                placeholder="Enter your custom thank you message for donors. Example: Thank you for your generous donation to our cause! Your support makes a real difference."
+                value={donationsData.acknowledgmentMessage}
+                onChange={(e) => handleChange(e, "acknowledgmentMessage")}
+                className="border-gray-300 min-h-[120px]"
+                disabled={shouldDisableInputs}
+              />
+            </div>
+          </section>
+
+          {/* Success message */}
+          {saveSuccess && (
+            <Alert className="bg-green-50 border-green-200 rounded-lg">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <AlertDescription className="ml-2 text-green-700">
+                Donation settings updated successfully!
+              </AlertDescription>
+            </Alert>
           )}
-        </div>
-        <div className="space-y-2">
-          <Label>Donation Acknowledgment Message</Label>
-          <Textarea
-            placeholder="Enter your custom thank you message for donors"
-            value={donationsData.acknowledgmentMessage}
-            onChange={(e) => handleChange(e, "acknowledgmentMessage")}
-            className="border-gray-300"
-            disabled={shouldDisableInputs}
-            title={
-              shouldDisableInputs
-                ? pendingTitle
-                : "Message that will be shown to donors after a successful donation"
-            }
-          />
-        </div>
-        <Button
-          className="w-full md:w-auto bg-[#1CAC78] hover:bg-[#158f63]"
-          onClick={handleSave}
-          disabled={shouldDisableInputs}
-          title={shouldDisableInputs ? pendingTitle : ""}
-        >
-          Save Donation Settings
-        </Button>
-        {isPending && <span>Pending Transaction</span>}
-        {hash && <div>Transaction Hash: {hash}</div>}
-      </CardContent>
-    </Card>
+
+          {/* Submit button */}
+          <div className="flex justify-end">
+            <Button
+              className="bg-[#1CAC78] hover:bg-[#158f63] flex items-center gap-2 px-6"
+              onClick={handleSave}
+              disabled={shouldDisableInputs || isSaving}
+              title={shouldDisableInputs ? pendingTitle : ""}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <BanknoteIcon className="h-4 w-4" />
+                  <span>Save Payment Settings</span>
+                </>
+              )}
+            </Button>
+          </div>
+
+          {isPending && (
+            <Alert className="bg-blue-50 border-blue-200 rounded-lg">
+              <Loader2 className="h-4 w-4 animate-spin text-blue-500" />
+              <AlertDescription className="ml-2 text-blue-700">
+                Blockchain transaction in progress...
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {hash && (
+            <Alert className="bg-green-50 border-green-200 rounded-lg">
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <div className="ml-2">
+                <p className="text-green-700 font-medium">
+                  Transaction Successful
+                </p>
+                <p className="text-xs text-green-600 font-mono mt-1 break-all">
+                  {hash}
+                </p>
+              </div>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
