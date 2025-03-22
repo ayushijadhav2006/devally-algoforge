@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Card,
   CardContent,
@@ -57,6 +57,7 @@ import { auth } from "@/lib/firebase";
 export function ResDonationTable() {
   // State for user data
   const [userData, setUserData] = useState(null);
+  const [ngoId, setNgoId] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -131,36 +132,28 @@ export function ResDonationTable() {
       donation.reason?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Get user data and ngoId on component mount
   useEffect(() => {
-    // First fetch user data to determine the correct NGO ID
     const fetchUserData = async () => {
       try {
         const currentUser = auth.currentUser;
         if (!currentUser) {
-          console.log("No user found");
-          setLoading(false);
-          setError("User not authenticated");
-          return;
+          throw new Error("User not authenticated");
         }
 
-        // Get user document to check role and type
         const userDoc = await getDoc(doc(db, "users", currentUser.uid));
         if (!userDoc.exists()) {
-          console.log("User document not found");
-          setLoading(false);
-          setError("User document not found");
-          return;
+          throw new Error("User data not found");
         }
 
-        const userDataFromFirestore = userDoc.data();
-        setUserData(userDataFromFirestore);
+        const data = userDoc.data();
+        setUserData(data);
+        setNgoId(data.ngoId || currentUser.uid);
 
         // Now that we have user data, set up the donation listeners
-        setupDonationListeners(userDataFromFirestore);
+        setupDonationListeners(data);
       } catch (error) {
         console.error("Error fetching user data:", error);
-        setLoading(false);
-        setError("Error fetching user data");
       }
     };
 
@@ -168,256 +161,68 @@ export function ResDonationTable() {
   }, []);
 
   // Set up donation listeners with the appropriate NGO ID
-  const setupDonationListeners = (userDataFromFirestore) => {
-    // Determine which NGO ID to use based on user type and role
-    let ngoId;
-    const userId = auth.currentUser.uid;
+  const setupDonationListeners = useCallback(() => {
+    if (!ngoId) return;
 
-    if (userDataFromFirestore.type === "ngo") {
-      if (userDataFromFirestore.role === "admin") {
-        // For NGO admin, use their own ID
-        ngoId = userId;
-      } else if (userDataFromFirestore.role === "member") {
-        // For NGO member, use the ngoId from their user data
-        ngoId = userDataFromFirestore.ngoId;
+    // Set up listener for donation approvals
+    const donationApprovalsRef = collection(db, "donationApprovals");
+    const unsubscribe = onSnapshot(donationApprovalsRef, (snapshot) => {
+      handleDonationApprovalSnapshot(snapshot, ngoId);
+    });
+
+    // Set up listener for completed/verified donations
+    const resourcesRef = collection(db, "res");
+    const resourcesQuery = query(resourcesRef, where("ngoId", "==", ngoId));
+    const allCompletedDonations = [];
+
+    const resourceUnsubscribe = onSnapshot(resourcesQuery, (resourcesSnap) => {
+      // Add this check to handle empty resources
+      if (resourcesSnap.empty) {
+        setLoading(false);
+        return;
       }
-    } else {
-      // For other user types, use their own ID (fallback)
-      ngoId = userId;
-    }
 
-    if (!ngoId) {
-      console.log("No NGO ID found");
-      setLoading(false);
-      setError("NGO information not available");
-      return;
-    }
+      resourcesSnap.forEach((doc) => {
+        const data = doc.data();
+        if (data.status === "completed" || data.status === "verified") {
+          const donation = {
+            id: doc.id,
+            ngoId,
+            donor: data.donorName || "Anonymous",
+            email: data.donorEmail || "N/A",
+            resource: data.resource || "N/A",
+            quantity: data.quantity || "N/A",
+            date: data.date || (data.createdAt ? new Date(data.createdAt.toDate()).toISOString().split("T")[0] : "N/A"),
+            status: data.status === "verified" ? "Verified" : "Completed",
+            phone: data.donorPhone || "N/A",
+            rawData: data,
+            timestamp: data.createdAt ? data.createdAt.toDate().getTime() : 0,
+          };
 
-    console.log("Setting up listeners for NGO:", ngoId);
-
-    // Set up listeners
-    const completedUnsubscribe = setupCompletedDonationsListener(ngoId, userId);
-    const approvalsUnsubscribe = setupDonationApprovalsListener(ngoId);
-
-    // Clean up listeners on unmount
-    return () => {
-      console.log("Cleaning up resource donation listeners");
-      if (completedUnsubscribe) completedUnsubscribe();
-      if (approvalsUnsubscribe) approvalsUnsubscribe();
-      unsubscribers.forEach((unsub) => unsub());
-    };
-  };
-
-  // Set up listener for completed resource donations
-  const setupCompletedDonationsListener = (ngoId, userId) => {
-    console.log("Setting up completed resource donations listener");
-    setLoading(true);
-
-    if (!ngoId) {
-      setLoading(false);
-      return null;
-    }
-
-    const currentYear = new Date().getFullYear().toString();
-    console.log("Year collection path:", `donations/${ngoId}/${currentYear}`);
-
-    try {
-      // Get the year collection
-      const yearRef = collection(db, `donations/${ngoId}/${currentYear}`);
-
-      // Clear previous listeners
-      unsubscribers.forEach((unsub) => unsub());
-      setUnsubscribers([]);
-
-      const yearUnsubscribe = onSnapshot(yearRef, (yearSnapshot) => {
-        const newUnsubscribers = [];
-        const allCompletedDonations = [];
-
-        // Add this line to handle initial empty state
-        setLoading(true);
-
-        yearSnapshot.docs.forEach((userDoc) => {
-          const userId = userDoc.id;
-          console.log("Processing user:", userId);
-
-          try {
-            // Get the resources subcollection for this user
-            const resourcesRef = collection(
-              db,
-              `donations/${ngoId}/${currentYear}/${userId}/resources`
-            );
-
-            const resourceUnsubscribe = onSnapshot(
-              resourcesRef,
-              (resourcesSnap) => {
-                // Add this check to handle empty resources
-                if (resourcesSnap.empty) {
-                  setLoading(false);
-                  return;
-                }
-
-                resourcesSnap.forEach((doc) => {
-                  const data = doc.data();
-                  if (
-                    data.status === "completed" ||
-                    data.status === "verified"
-                  ) {
-                    const donation = {
-                      id: doc.id,
-                      userId,
-                      donor: data.donorName || "Anonymous",
-                      email: data.donorEmail || "N/A",
-                      resource: data.resource || "N/A",
-                      quantity: data.quantity || "N/A",
-                      date:
-                        data.date ||
-                        (data.createdAt
-                          ? new Date(data.createdAt.toDate())
-                              .toISOString()
-                              .split("T")[0]
-                          : "N/A"),
-                      status:
-                        data.status === "verified" ? "Verified" : "Completed",
-                      phone: data.donorPhone || "N/A",
-                      rawData: data,
-                      timestamp: data.createdAt
-                        ? data.createdAt.toDate().getTime()
-                        : 0,
-                    };
-
-                    allCompletedDonations.push(donation);
-                  }
-                });
-
-                // Sort donations by timestamp (newest first)
-                const sortedDonations = allCompletedDonations.sort(
-                  (a, b) => b.timestamp - a.timestamp
-                );
-
-                setCompletedDonations(sortedDonations);
-                setLoading(false);
-              }
-            );
-
-            newUnsubscribers.push(resourceUnsubscribe);
-          } catch (error) {
-            console.error(
-              `Error fetching resources for user ${userId}:`,
-              error
-            );
-            setLoading(false);
-          }
-        });
-
-        // Add these lines to handle initial load completion
-        if (yearSnapshot.empty) {
-          setCompletedDonations([]);
-          setLoading(false);
-        } else {
-          setUnsubscribers((prev) => [...prev, ...newUnsubscribers]);
-          setLoading(false); // Add this line to ensure loading state is cleared
+          allCompletedDonations.push(donation);
         }
       });
 
-      // Add year collection listener to unsubscribers
-      setUnsubscribers((prev) => [...prev, yearUnsubscribe]);
-
-      // Also listen for verified donations in donationApprovals
-      const verifiedDonationsQuery = query(
-        collection(db, "donationApprovals"),
-        where("type", "==", "resource"),
-        where("status", "==", "verified"),
-        where("ngoId", "==", ngoId)
-      );
-
-      const verifiedDonationsUnsubscribe = onSnapshot(
-        verifiedDonationsQuery,
-        (snapshot) => {
-          const verifiedDonations = [];
-
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            const donation = {
-              id: doc.id,
-              donor: data.donorName || "Anonymous",
-              email: data.donorEmail || "N/A",
-              resource: data.resource || "N/A",
-              quantity: data.quantity || "N/A",
-              date:
-                data.date ||
-                (data.createdAt
-                  ? new Date(data.createdAt.toDate())
-                      .toISOString()
-                      .split("T")[0]
-                  : "N/A"),
-              status: "Verified",
-              phone: data.donorPhone || "N/A",
-              rawData: data,
-              timestamp: data.createdAt ? data.createdAt.toDate().getTime() : 0,
-            };
-
-            verifiedDonations.push(donation);
-          });
-
-          // Merge with existing completed donations
-          setCompletedDonations((prev) => {
-            // Filter out any verified donations that might be duplicates
-            const filteredPrev = prev.filter(
-              (p) => !verifiedDonations.some((v) => v.id === p.id)
-            );
-
-            // Combine and sort
-            return [...filteredPrev, ...verifiedDonations].sort(
-              (a, b) => b.timestamp - a.timestamp
-            );
-          });
-        }
-      );
-
-      // Add to unsubscribers
-      setUnsubscribers((prev) => [...prev, verifiedDonationsUnsubscribe]);
-
-      return () => {
-        console.log("Cleaning up year collection listener");
-        unsubscribers.forEach((unsub) => unsub());
-      };
-    } catch (err) {
-      console.error("Error setting up year collection listener:", err);
-      setError("Failed to set up data listener: " + err.message);
+      // Sort donations by timestamp (newest first)
+      const sortedDonations = allCompletedDonations.sort((a, b) => b.timestamp - a.timestamp);
+      setCompletedDonations(sortedDonations);
       setLoading(false);
-      return null;
-    }
-  };
+    });
 
-  // Set up listener for donation approvals (pending and rejected)
-  const setupDonationApprovalsListener = (ngoId) => {
-    console.log("Setting up resource donation approvals listener");
-
-    // We need to handle documents with and without the type field
-    // First, let's create a query for documents with type="resource"
-    const resourceTypeQuery = query(
-      collection(db, "donationApprovals"),
-      where("type", "==", "resource")
-    );
-
-    // Create a listener for resource type donations
-    const unsubscribe = onSnapshot(
-      resourceTypeQuery,
-      (snapshot) => handleDonationApprovalSnapshot(snapshot, ngoId),
-      (error) => {
-        console.error(
-          "Error in resource type donation approvals listener:",
-          error
-        );
-        setLoading(false);
-      }
-    );
-
-    // Return a function that unsubscribes from all listeners
     return () => {
       unsubscribe();
+      resourceUnsubscribe();
     };
-  };
+  }, [ngoId]);
+
+  useEffect(() => {
+    const unsubscribe = setupDonationListeners();
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, [setupDonationListeners]);
 
   // Helper function to process donation approval snapshots
   const handleDonationApprovalSnapshot = (snapshot, ngoId) => {
@@ -715,7 +520,8 @@ export function ResDonationTable() {
       !newResource ||
       !newQuantity ||
       !donatedOn ||
-      !resourceName
+      !resourceName ||
+      !ngoId
     ) {
       toast.error("Please fill all the required fields");
       return;
@@ -726,7 +532,6 @@ export function ResDonationTable() {
     try {
       const donationApprovalId = new Date().getTime().toString();
       const docRef = doc(db, "donationApprovals", donationApprovalId);
-      const ngoId = user.uid;
 
       // Get NGO details
       const ngoDocRef = doc(db, `ngo/${ngoId}`);
@@ -762,36 +567,6 @@ export function ResDonationTable() {
         // Add any additional fields specific to res collection if needed
       });
 
-      await fetch("/api/donation-approval-resources", {
-        method: "POST",
-        body: JSON.stringify({
-          resource: newResource,
-          quantity: newQuantity,
-          donorName: newDonorName,
-          donorEmail: newDonorEmail,
-          donorPhone: newDonorPhone,
-          donatedOn,
-          donationApprovalId,
-          donationApprovalLink: `${window.location.origin}/donation-approvals/${donationApprovalId}`,
-          ngoName,
-        }),
-      });
-
-      // Send confirmation SMS
-      await fetch("/api/send-sms", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          to: newDonorPhone,
-          body: `Hello ${newDonorName}, thank you for donating ${newQuantity} ${newResource} to ${ngoName}. 
-Please confirm your donation by clicking the link below.
-
-Confirmation Link: ${window.location.origin}/donation-approvals/${donationApprovalId}`,
-        }),
-      });
-
       // Reset form
       setNewDonorName("");
       setNewDonorEmail("");
@@ -802,7 +577,7 @@ Confirmation Link: ${window.location.origin}/donation-approvals/${donationApprov
       setResourceName("");
       setAddResourceDialogOpen(false);
 
-      toast.success("Resource donation added for approval", { id: toasting });
+      toast.success("Resource donation added successfully", { id: toasting });
     } catch (error) {
       console.error("Error adding resource donation:", error);
       toast.error("Error adding donation", { id: toasting });
