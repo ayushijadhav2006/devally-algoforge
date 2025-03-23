@@ -1,42 +1,45 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DonationsDashboard } from "@/components/donations-dashboard";
-import { DonationsTransactions } from "@/components/donations-transactions";
-import { PayoutManagement } from "@/components/payout-management";
-import { DonorsTable } from "@/components/donors-table";
-import CashDonation from "@/components/ngo/CashDonation";
-import OnlineDonation from "@/components/ngo/OnlineDonation";
-import { CashDonationTable } from "@/components/CashDonationTable";
-import { OnlineDonationTable } from "@/components/OnlineDonationTable";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
-import {
-  doc,
-  getDoc,
-  collection,
-  getDocs,
-  collectionGroup,
-  setDoc,
-} from "firebase/firestore";
-import { useRouter } from "next/navigation";
-import Loading from "@/components/loading/Loading";
-import { ResDonationTable } from "@/components/ResDonationTable";
-import {
-  useReadContract,
-  useWriteContract,
-  useWaitForTransactionReceipt,
-} from "wagmi";
-import { NGOABI } from "@/constants/contract";
-import { formatEther, parseEther } from "viem";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { storage } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import toast from "react-hot-toast";
-import { parseUnits } from "ethers";
-import ResourcesDonation from "@/components/ngo/ResourcesDonation";
+  import { useEffect, useState } from "react";
+  import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+  import { DonationsDashboard } from "@/components/donations-dashboard";
+  import { DonationsTransactions } from "@/components/donations-transactions";
+  import { PayoutManagement } from "@/components/payout-management";
+  import { DonorsTable } from "@/components/donors-table";
+  import CashDonation from "@/components/ngo/CashDonation";
+  import OnlineDonation from "@/components/ngo/OnlineDonation";
+  import { CashDonationTable } from "@/components/CashDonationTable";
+  import { OnlineDonationTable } from "@/components/OnlineDonationTable";
+  import { onAuthStateChanged } from "firebase/auth";
+  import { auth, db } from "@/lib/firebase";
+  import {
+    doc,
+    getDoc,
+    collection,
+    getDocs,
+    collectionGroup,
+    setDoc,
+  } from "firebase/firestore";
+  import { useRouter } from "next/navigation";
+  import Loading from "@/components/loading/Loading";
+  import { ResDonationTable } from "@/components/ResDonationTable";
+  import {
+    useReadContract,
+    useWriteContract,
+    useWaitForTransactionReceipt,
+  } from "wagmi";
+  import { NGOABI } from "@/constants/contract";
+  import { formatEther, parseEther } from "viem";
+  import { Button } from "@/components/ui/button";
+  import { Input } from "@/components/ui/input";
+  import { storage } from "@/lib/firebase";
+  import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+  import toast from "react-hot-toast";
+  import { parseUnits } from "ethers/lib/utils";
+  import ResourcesDonation from "@/components/ngo/ResourcesDonation";
+  import { CryptoDonationTable } from "@/components/CryptoDonationTable";
+  import { CryptoPayoutButton } from "@/components/CryptoPayoutButton";
+  import CryptoDonation from "@/components/ngo/CryptoDonation";
 
 export default function NGODonationsPage() {
   const [user, setUser] = useState(null);
@@ -285,6 +288,7 @@ export default function NGODonationsPage() {
           <TabsTrigger value="cash">Cash</TabsTrigger>
           <TabsTrigger value="online">Online</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
+          <TabsTrigger value="cryptocurrency">Cryptocurrency</TabsTrigger>
         </TabsList>
 
         <TabsContent value="donors">
@@ -301,6 +305,10 @@ export default function NGODonationsPage() {
 
         <TabsContent value="resources">
           <ResDonationTable />
+        </TabsContent>
+
+        <TabsContent value="cryptocurrency">
+          <CryptoDonationTable ngoProfile={ngoProfile} userId={user?.uid} />
         </TabsContent>
       </Tabs>
     </div>
