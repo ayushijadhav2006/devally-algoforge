@@ -401,11 +401,13 @@ const DonateNow = ({ ngoData }) => {
   const handleCryptoDonation = useCallback(
     (e) => {
       e.preventDefault();
+      // Don't try to do both operations at once
+      // First do approval, then handle donate in the callback
       handleApprove();
-      handleDonate();
-      updateDatabaseRecords();
+      // The donation should happen after approval succeeds
+      // handleDonate() and updateDatabaseRecords() should be called in the approval success callback
     },
-    [handleApprove, handleDonate]
+    [handleApprove]
   );
 
   return (

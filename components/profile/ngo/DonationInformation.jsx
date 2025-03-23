@@ -84,7 +84,7 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     isPending: ngoOwnerAddPending,
     refetch: refetchNgoContract,
   } = useReadContract({
-    address: "0xBe1cC0D67244B29B903848EF52530538830bD6d7",
+    address: "0xd4fb2E1C31b146b2EA7521d594Eb7E6eCDF02F93",
     abi: SuperAdminABI,
     functionName: "ngoContracts",
     args: [donationsData.cryptoWalletAddress || walletAddress],
@@ -115,7 +115,8 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     // Only start polling if crypto is enabled and we have a wallet address
     if (
       donationsData.isCryptoTransferEnabled &&
-      donationsData.cryptoWalletAddress
+      donationsData.cryptoWalletAddress &&
+      !pollInterval
     ) {
       // Check if we have an empty contract (0x0 address)
       const isEmptyContract =
@@ -140,22 +141,21 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
 
         // Log polling start
         console.log("Started polling for contract data");
+      }
 
-        // Clean up interval when component unmounts or contract is found
-        return () => {
-          clearInterval(interval);
+      return () => {
+        if (pollInterval) {
+          clearInterval(pollInterval);
           setPollInterval(null);
           setIsPollingActive(false);
           console.log("Stopped polling for contract data");
-        };
-      } else if (pollInterval) {
-        // If we have a contract and we're still polling, stop polling
-        clearInterval(pollInterval);
-        setPollInterval(null);
-        setIsPollingActive(false);
-        console.log("Contract found, stopped polling");
-      }
-    } else if (pollInterval) {
+        }
+      };
+    } else if (
+      (!donationsData.isCryptoTransferEnabled ||
+        !donationsData.cryptoWalletAddress) &&
+      pollInterval
+    ) {
       // If crypto is disabled but we're still polling, stop polling
       clearInterval(pollInterval);
       setPollInterval(null);
@@ -174,7 +174,7 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
 
   // Reset contract data when wallet address changes
   useEffect(() => {
-    if (isUpdatingWallet && isConnected && walletAddress) {
+    if (isUpdatingWallet && isConnected && walletAddress && !isPollingActive) {
       // When wallet address changes, we should get fresh contract data
       console.log("Wallet address updated, fetching new contract data");
 
@@ -196,6 +196,7 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     isUpdatingWallet,
     pollInterval,
     refetchNgoContract,
+    isPollingActive,
   ]);
 
   // Fetch donation data once on component mount
@@ -223,13 +224,23 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
 
   // Only update cryptoWalletAddress when in update mode and wallet connection changes
   useEffect(() => {
-    if (isUpdatingWallet && isConnected) {
+    if (
+      isConnected &&
+      walletAddress &&
+      (isUpdatingWallet || !donationsData.cryptoWalletAddress) &&
+      walletAddress !== donationsData.cryptoWalletAddress
+    ) {
       setDonationsData((prev) => ({
         ...prev,
         cryptoWalletAddress: walletAddress,
       }));
     }
-  }, [walletAddress, isConnected, isUpdatingWallet]);
+  }, [
+    walletAddress,
+    isConnected,
+    isUpdatingWallet,
+    donationsData.cryptoWalletAddress,
+  ]);
 
   // Track contract transaction status
   useEffect(() => {
@@ -323,11 +334,17 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     try {
       if (!data) return;
 
-      // Don't add the contract address to the data anymore
+      // Ensure crypto fields are properly included in saved data
       const completeData = {
         ...data,
+        // Explicitly include crypto-related fields
+        cryptoWalletAddress: data.cryptoWalletAddress || "",
+        isCryptoTransferEnabled: data.isCryptoTransferEnabled || false,
+        ngoOwnerAdd: data.ngoOwnerAdd || data.cryptoWalletAddress || null,
         // We don't save ngoOwnerAddContract anymore
       };
+
+      console.log("Saving data to Firestore:", completeData);
 
       // Save everything to Firestore
       const docRef = doc(db, "ngo", ngoId);
@@ -363,11 +380,11 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
       setIsUpdatingContractAddress(true);
 
       const tx = await writeContract({
-        address: "0xBe1cC0D67244B29B903848EF52530538830bD6d7",
+        address: "0xd4fb2E1C31b146b2EA7521d594Eb7E6eCDF02F93",
         abi: SuperAdminABI,
         functionName: "createNGO",
         args: [
-          donationsData.cryptoWalletAddress,
+          // donationsData.cryptoWalletAddress,
           "0xAbFb2AeF4aAC335Cda2CeD2ddd8A6521047e8ddF",
         ],
       });
@@ -443,6 +460,15 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
 
       // Handle crypto-related data differently
       if (updatedDonationsData.isCryptoTransferEnabled) {
+        // Always include the wallet address and ngoOwnerAdd field
+        updatedDonationsData = {
+          ...updatedDonationsData,
+          cryptoWalletAddress:
+            updatedDonationsData.cryptoWalletAddress || walletAddress,
+          ngoOwnerAdd:
+            updatedDonationsData.cryptoWalletAddress || walletAddress,
+        };
+
         // 1. Check if we need to create a contract
         const needsContractCreation =
           !formattedNgoOwnerContract &&
@@ -450,13 +476,6 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
 
         // 2. If a contract creation is needed, handle it separately
         if (needsContractCreation) {
-          // Prepare data including wallet address but not contract address
-          updatedDonationsData = {
-            ...updatedDonationsData,
-            ngoOwnerAdd: updatedDonationsData.cryptoWalletAddress,
-            // We don't save contract address to Firestore anymore
-          };
-
           // Store the data in state temporarily - don't save to Firestore yet
           setPendingDonationsData(updatedDonationsData);
 
@@ -477,20 +496,15 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
           // The rest will be handled after contract creation completes
           // Keep the saving state active until contract creation is done
           return;
-        } else {
-          // No contract creation needed, just update the wallet address
-          updatedDonationsData = {
-            ...updatedDonationsData,
-            ngoOwnerAdd: updatedDonationsData.cryptoWalletAddress,
-            // We don't save contract address to Firestore anymore
-          };
         }
       } else {
         // If crypto is disabled, clear all related fields
-        updatedDonationsData.cryptoWalletAddress = null;
+        updatedDonationsData.cryptoWalletAddress = "";
         updatedDonationsData.ngoOwnerAdd = null;
-        // We don't manage ngoOwnerAddContract in Firestore anymore
       }
+
+      // Log what will be saved to help debugging
+      console.log("Saving donation data:", updatedDonationsData);
 
       // Only save to Firestore if we're not creating a contract
       // (contract creation case is handled by saveAllDataWithContract)
@@ -502,10 +516,7 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
       console.error("Error saving settings:", error);
       toast.error("Failed to update donation settings.");
       setPendingDonationsData(null);
-    } finally {
-      if (!isUpdatingContractAddress) {
-        setIsSaving(false);
-      }
+      setIsSaving(false);
     }
   };
 
@@ -913,7 +924,7 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
                             <ConnectButton />
                           </div>
 
-                          {isConnected && (
+                          {isConnected && walletAddress && (
                             <div className="flex items-center px-3 py-2 bg-blue-50 rounded-md text-blue-700 border border-blue-200 max-w-md break-all">
                               <p className="text-sm font-mono">
                                 {walletAddress}
@@ -935,6 +946,16 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
                             <p className="text-xs text-gray-500 mt-1">
                               After connecting your wallet, click "Save Payment
                               Settings" to update
+                            </p>
+                          </div>
+                        )}
+
+                        {isConnected && walletAddress && (
+                          <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-md flex items-center">
+                            <CheckCircleIcon className="w-4 h-4 text-green-600 mr-2" />
+                            <p className="text-sm text-green-700">
+                              Wallet connected successfully! Click "Save Payment
+                              Settings" below to apply changes.
                             </p>
                           </div>
                         )}
