@@ -11,7 +11,6 @@ import { NGOABI, NGOCoinABI, SuperAdminABI } from "@/constants/contract";
 import {
   useAccount,
   useWriteContract,
-  useWaitForTransactionReceipt,
   useReadContract,
   useConnect,
   useDisconnect,
@@ -45,24 +44,34 @@ const CryptoDonation = ({ ngoData }) => {
       functionName: "balanceOf",
       args: [walletAddress],
       enabled: Boolean(walletAddress),
+      // Add cacheTime and staleTime to prevent excessive refetching
+      cacheTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 1, // 1 minute
+      // Only update when necessary
+      watch: false,
     }
   );
 
-  // Format token balance for display
-  const formattedBalance = userTokenBalance
-    ? parseFloat(formatUnits(userTokenBalance, 18))
-    : 0;
+  // Format token balance for display - memoize to prevent recalculations
+  const formattedBalance = React.useMemo(() => {
+    return userTokenBalance ? parseFloat(formatUnits(userTokenBalance, 18)) : 0;
+  }, [userTokenBalance]);
 
   // Get NGO contract address from Super Admin contract
   const { data: ngoContractAddress, isLoading: ngoAddressLoading } =
     useReadContract({
-      address: "0xBe1cC0D67244B29B903848EF52530538830bD6d7", // Super Admin contract
+      address: "0xd4fb2E1C31b146b2EA7521d594Eb7E6eCDF02F93", // Super Admin contract
       abi: SuperAdminABI,
       functionName: "ngoContracts",
       args: [ngoData?.donationsData?.cryptoWalletAddress || walletAddress],
-      enabled: Boolean(
-        ngoData?.donationsData?.cryptoWalletAddress || walletAddress
-      ),
+      enabled:
+        Boolean(walletAddress) &&
+        Boolean(ngoData?.donationsData?.cryptoWalletAddress || walletAddress),
+      // Add cacheTime and staleTime to prevent excessive refetching
+      cacheTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 1, // 1 minute
+      // Only update when wallet changes to prevent loops
+      watch: false,
     });
 
   // Connect wallet handler
@@ -82,13 +91,15 @@ const CryptoDonation = ({ ngoData }) => {
 
   // Fetch user data on component mount
   useEffect(() => {
+    let isMounted = true;
+
     const fetchUserData = async () => {
       try {
         const user = auth.currentUser;
-        if (user) {
+        if (user && isMounted) {
           const userDocRef = doc(db, "users", user.uid);
           const userDocSnap = await getDoc(userDocRef);
-          if (userDocSnap.exists()) {
+          if (userDocSnap.exists() && isMounted) {
             setUserData(userDocSnap.data());
           }
         }
@@ -98,12 +109,17 @@ const CryptoDonation = ({ ngoData }) => {
     };
 
     fetchUserData();
-  }, []);
 
-  // Convert input amount to token units
-  const parsedAmount = cryptoAmount
-    ? parseUnits(cryptoAmount, 18)
-    : parseUnits("0", 18);
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      isMounted = false;
+    };
+  }, [auth.currentUser?.uid]); // Only re-run if user ID changes
+
+  // Convert input amount to token units - memoize to prevent recalculations on each render
+  const parsedAmount = React.useMemo(() => {
+    return cryptoAmount ? parseUnits(cryptoAmount, 18) : parseUnits("0", 18);
+  }, [cryptoAmount]);
 
   // Handle the approval step
   const handleApprove = async (e) => {
@@ -130,6 +146,7 @@ const CryptoDonation = ({ ngoData }) => {
       toast.loading("Please confirm the approval in your wallet...", {
         id: "approval",
       });
+      console.log("NGO CONTRACT", ngoContractAddress);
 
       const tx = await writeContractAsync({
         address: STABLE_COIN_ADDRESS,
@@ -172,10 +189,16 @@ const CryptoDonation = ({ ngoData }) => {
     return new Promise((resolve, reject) => {
       const checkReceipt = async () => {
         try {
-          // This is a simplified version. In production, use a proper ethers or viem provider
-          const provider = window.ethereum
-            ? new ethers.providers.Web3Provider(window.ethereum)
-            : null;
+          // Create provider more reliably with Sepolia configuration
+          let provider;
+          if (window.ethereum) {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+          } else {
+            // Fallback to Sepolia public provider
+            provider = new ethers.providers.JsonRpcProvider(
+              "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161" // Sepolia RPC URL
+            );
+          }
 
           if (!provider) {
             reject(new Error("No provider available"));
@@ -215,11 +238,21 @@ const CryptoDonation = ({ ngoData }) => {
         id: "donation",
       });
 
+      // Get more info about the NGO contract for debugging
+      console.log("Donating to contract:", ngoContractAddress);
+      console.log("Amount:", parsedAmount.toString());
+
+      // Restore the second parameter since the DonateNow.jsx shows the contract expects it
       const tx = await writeContractAsync({
         address: ngoContractAddress,
         abi: NGOABI,
         functionName: "donate",
-        args: [parsedAmount, true],
+        args: [parsedAmount], // Second parameter is required
+        // Add gas limit override to prevent gas estimation failures
+        // Sepolia may need higher gas limits than other networks
+        overrides: {
+          gasLimit: 500000, // Increased for Sepolia testnet
+        },
       });
 
       toast.loading(
@@ -245,7 +278,19 @@ const CryptoDonation = ({ ngoData }) => {
 
       let errorMessage = "Failed to send donation";
 
+      // Enhance error handling for Sepolia-specific issues
       if (
+        error.message &&
+        error.message.includes("user rejected transaction")
+      ) {
+        errorMessage = "Transaction was rejected in your wallet";
+      } else if (
+        error.message &&
+        error.message.includes("insufficient funds")
+      ) {
+        errorMessage =
+          "Insufficient funds for gas * price + value. You may need Sepolia ETH for gas.";
+      } else if (
         error.message &&
         (error.message.includes("function selector was not recognized") ||
           error.message.includes("contract function not found"))
@@ -253,6 +298,8 @@ const CryptoDonation = ({ ngoData }) => {
         errorMessage =
           "The NGO contract doesn't support donations. Please contact the NGO administrator.";
       } else if (error.message) {
+        // Log more detailed error for debugging
+        console.log("Detailed error:", JSON.stringify(error, null, 2));
         errorMessage += ": " + error.message;
       }
 
@@ -285,10 +332,12 @@ const CryptoDonation = ({ ngoData }) => {
         read: false,
       };
 
-      // Record the donation in various places for different views
-      await Promise.all([
-        // Send WhatsApp notification if configured
-        userData?.phone &&
+      // Array to store promises
+      const updatePromises = [];
+
+      // 1. Send WhatsApp notification if configured
+      if (userData?.phone) {
+        updatePromises.push(
           sendWhatsappMessage(
             donationData.name,
             ngoData.ngoName,
@@ -296,9 +345,12 @@ const CryptoDonation = ({ ngoData }) => {
             donationData.email,
             donationData.phone,
             donationData.amount
-          ),
+          ).catch((err) => console.error("WhatsApp notification error:", err))
+        );
+      }
 
-        // Store donation record in the NGO's donations collection
+      // 2. Store donation record
+      updatePromises.push(
         setDoc(
           doc(
             db,
@@ -311,19 +363,25 @@ const CryptoDonation = ({ ngoData }) => {
           ),
           donationData,
           { merge: true }
-        ),
+        ).catch((err) => console.error("Donation record error:", err))
+      );
 
-        // Update user's total tokens donated
+      // 3. Update user's total tokens donated
+      updatePromises.push(
         updateDoc(doc(db, "users", auth.currentUser.uid), {
           totalTokensDonated: increment(parseFloat(cryptoAmount)),
-        }),
+        }).catch((err) => console.error("User tokens update error:", err))
+      );
 
-        // Update NGO's total tokens donated
+      // 4. Update NGO's total tokens donated
+      updatePromises.push(
         updateDoc(doc(db, "ngo", ngoData.ngoId), {
           totalTokensDonated: increment(parseFloat(cryptoAmount)),
-        }),
+        }).catch((err) => console.error("NGO tokens update error:", err))
+      );
 
-        // Record in user's donations list
+      // 5. Record in user's donations list
+      updatePromises.push(
         setDoc(
           doc(db, "users", auth.currentUser.uid, "donatedTo", ngoData.ngoId),
           {
@@ -331,28 +389,42 @@ const CryptoDonation = ({ ngoData }) => {
             timestamp: donationData.timestamp,
           },
           { merge: true }
-        ),
+        ).catch((err) => console.error("User donations list error:", err))
+      );
 
-        // Add notification for the NGO
-        setDoc(
-          doc(db, "notifications", ngoData.ngoId),
-          {
-            notifications: increment([
+      // 6. Add notification for the NGO - Fixed to prevent increment with arrays
+      const notificationDoc = doc(db, "notifications", ngoData.ngoId);
+      updatePromises.push(
+        getDoc(notificationDoc)
+          .then((docSnap) => {
+            let existingNotifications = [];
+            if (docSnap.exists() && docSnap.data().notifications) {
+              existingNotifications = docSnap.data().notifications;
+            }
+
+            const newNotification = {
+              title: "New Crypto Donation",
+              message: `${userData?.name || "Someone"} donated ${cryptoAmount} tokens to your NGO`,
+              timestamp: new Date(),
+              read: false,
+              type: "success",
+              link: "/dashboard/ngo/donations",
+            };
+
+            return setDoc(
+              notificationDoc,
               {
-                title: "New Crypto Donation",
-                message: `${userData?.name || "Someone"} donated ${cryptoAmount} tokens to your NGO`,
-                timestamp: new Date(),
-                read: false,
-                type: "success",
-                link: "/dashboard/ngo/donations",
+                notifications: [newNotification, ...existingNotifications],
+                unreadCount: increment(1),
               },
-            ]),
-            unreadCount: increment(1),
-          },
-          { merge: true }
-        ),
-      ]);
+              { merge: true }
+            );
+          })
+          .catch((err) => console.error("Notification update error:", err))
+      );
 
+      // Execute all promises
+      await Promise.all(updatePromises);
       toast.success("Donation recorded successfully!");
     } catch (error) {
       console.error("Database update error:", error);

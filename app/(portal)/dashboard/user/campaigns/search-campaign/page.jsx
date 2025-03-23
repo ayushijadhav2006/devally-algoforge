@@ -21,6 +21,7 @@ import { collection } from 'firebase/firestore';
 import { setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { useGamification } from '@/context/GamificationContext';
+import CampaignDonate from '@/components/ngo/campaigns/CampaignDonate';
 
 export default function UserCampaignsPage() {
   const [campaigns, setCampaigns] = useState([]);
@@ -33,10 +34,6 @@ export default function UserCampaignsPage() {
   const [uniqueCategories, setUniqueCategories] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isDonateModalOpen, setIsDonateModalOpen] = useState(false);
-  const [donationAmount, setDonationAmount] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [showTranslationModal, setShowTranslationModal] = useState(false);
   const { language, translations } = useLanguage();
   const { recordDonation } = useGamification();
@@ -125,209 +122,18 @@ export default function UserCampaignsPage() {
     setSelectedCampaign(null);
   };
 
-  const openDonateModal = (e, campaign) => {
-    e.stopPropagation();
-    // If clicked from the campaign card, fetch and set the selected campaign
-    if (campaign && !selectedCampaign) {
-      setSelectedCampaign(campaign);
-    }
-    setIsDonateModalOpen(true);
-  };
-
-  const closeDonateModal = () => {
-    setIsDonateModalOpen(false);
-    setDonationAmount('');
-    setSuccessMessage('');
-  };
-
-  const handleDonationSubmit = async (e) => {
-    e.preventDefault();
-    if (!auth.currentUser) {
-      toast.error("Please login to donate");
-      return;
-    }
-
-    if (!selectedCampaign) {
-      toast.error("Campaign not found");
-      return;
-    }
-
-    // Validate amount
-    const amount = parseFloat(donationAmount);
-    if (!amount || amount <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-
-    // Check if campaign is still active
-    if (isExpired(selectedCampaign.date)) {
-      toast.error("This campaign has expired");
-      return;
-    }
-
+  // Format date for display
+  const formatDate = (date) => {
+    if (!date) return 'N/A';
     try {
-      // Get NGO's Razorpay keys
-      const ngoRef = doc(db, 'ngo', selectedCampaign.ngoId);
-      const ngoDoc = await getDoc(ngoRef);
-      
-      if (!ngoDoc.exists()) {
-        toast.error("NGO not found");
-        return;
-      }
-
-      const ngoData = ngoDoc.data();
-      if (!ngoData.donationsData?.razorpayKeyId || !ngoData.donationsData?.razorpayKeySecret) {
-        toast.error("Payment not configured for this NGO");
-        return;
-      }
-
-      // Create order
-      const response = await fetch("/api/create-donation", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          amount: donationAmount,
-          userId: auth.currentUser.uid,
-          ngoId: selectedCampaign.ngoId,
-          campaignId: selectedCampaign.id,
-          rzpKeyId: ngoData.donationsData.razorpayKeyId,
-          rzpKeySecret: ngoData.donationsData.razorpayKeySecret,
-        }),
+      return new Date(date).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to create donation order');
-      }
-
-      const { orderId, amount: orderAmount } = await response.json();
-
-      // Initialize Razorpay
-      const options = {
-        key: ngoData.donationsData.razorpayKeyId,
-        amount: orderAmount,
-        currency: "INR",
-        name: selectedCampaign.name,
-        description: "Campaign Donation",
-        order_id: orderId,
-        handler: async (response) => {
-          await saveDonationData(response);
-        },
-        prefill: {
-          name: auth.currentUser.displayName || '',
-          email: auth.currentUser.email || '',
-        },
-        theme: {
-          color: "#1CAC78",
-        },
-      };
-
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-
     } catch (error) {
-      console.error("Error processing payment:", error);
-      toast.error(error.message || "Failed to process payment");
-    }
-  };
-
-  const saveDonationData = async (paymentResponse) => {
-    try {
-      const donationData = {
-        amount: parseFloat(donationAmount),
-        campaignId: selectedCampaign.id,
-        campaignName: selectedCampaign.name,
-        ngoId: selectedCampaign.ngoId,
-        ngoName: selectedCampaign.ngoName,
-        userId: auth.currentUser.uid,
-        userName: auth.currentUser.displayName || '',
-        userEmail: auth.currentUser.email || '',
-        paymentId: paymentResponse.razorpay_payment_id,
-        orderId: paymentResponse.razorpay_order_id,
-        signature: paymentResponse.razorpay_signature,
-        status: 'completed',
-        date: new Date().toISOString(),
-        type: 'campaign'
-      };
-
-      // Save to donations collection
-      const donationRef = doc(collection(db, 'donations'));
-      await setDoc(donationRef, donationData);
-
-      // Update campaign raised amount
-      const campaignRef = doc(db, 'campaigns', selectedCampaign.id);
-      await updateDoc(campaignRef, {
-        raisedAmount: increment(parseFloat(donationAmount))
-      });
-
-      // Update user's total donated amount
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      await updateDoc(userRef, {
-        totalDonated: increment(parseFloat(donationAmount))
-      });
-
-      // Record donation in gamification system
-      try {
-        const gamificationData = {
-          amount: parseFloat(donationAmount),
-          campaignId: selectedCampaign.id,
-          ngoId: selectedCampaign.ngoId,
-          timestamp: new Date().toISOString()
-        };
-        
-        const gamificationResult = await recordDonation(gamificationData);
-        
-        if (gamificationResult?.pointsAwarded) {
-          toast.success(`Thank you for your donation! You earned ${gamificationResult.pointsAwarded} points!`);
-          
-          // Check if any new badges were earned
-          if (gamificationResult.newBadges && gamificationResult.newBadges.length > 0) {
-            // Display toast for each new badge
-            gamificationResult.newBadges.forEach(badge => {
-              setTimeout(() => {
-                toast.success(`🏆 New badge earned: ${badge.name}!`, {
-                  duration: 5000,
-                  style: {
-                    border: '1px solid #10B981',
-                    padding: '16px',
-                    color: '#064E3B',
-                  },
-                  iconTheme: {
-                    primary: '#10B981',
-                    secondary: '#FFFFFF',
-                  },
-                });
-              }, 1000); // Show badge notifications with a slight delay
-            });
-          }
-        } else {
-          toast.success("Thank you for your donation!");
-        }
-      } catch (gamificationError) {
-        console.error("Error recording gamification:", gamificationError);
-        // Still show success even if gamification fails
-        toast.success("Thank you for your donation!");
-      }
-
-      // Update local state
-      setCampaigns(prev => 
-        prev.map(camp => 
-          camp.id === selectedCampaign.id 
-            ? { 
-                ...camp, 
-                raisedAmount: (camp.raisedAmount || 0) + parseFloat(donationAmount)
-              }
-            : camp
-        )
-      );
-      
-      setDonationAmount('');
-      setIsDonateModalOpen(false);
-      
-    } catch (error) {
-      console.error("Error saving donation:", error);
-      toast.error("Error recording donation");
+      console.error("Error formatting date:", error);
+      return 'Invalid date';
     }
   };
 
@@ -344,31 +150,17 @@ export default function UserCampaignsPage() {
     }
   };
 
-  // Format date for display
-  const formatDate = (date) => {
-    if (!date) return translations.tbd || 'TBD';
-    try {
-      const dateObj = new Date(date);
-      if (isNaN(dateObj.getTime())) return translations.tbd || 'TBD';
-      const options = { year: 'numeric', month: 'long', day: 'numeric' };
-      return dateObj.toLocaleDateString(undefined, options);
-    } catch (error) {
-      console.error("Error formatting date:", error);
-      return translations.tbd || 'TBD';
-    }
-  };
-  
   // Format time for display
   const formatTime = (date) => {
-    if (!date) return translations.tbd || 'TBD';
+    if (!date) return 'N/A';
     try {
-      const dateObj = new Date(date);
-      if (isNaN(dateObj.getTime())) return translations.tbd || 'TBD';
-      const options = { hour: '2-digit', minute: '2-digit' };
-      return dateObj.toLocaleTimeString(undefined, options);
+      return new Date(date).toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
     } catch (error) {
       console.error("Error formatting time:", error);
-      return translations.tbd || 'TBD';
+      return 'Invalid time';
     }
   };
 
@@ -650,107 +442,17 @@ export default function UserCampaignsPage() {
                 >
                   {translations.close || "Close"}
                 </button>
-                <button 
-                  onClick={(e) => openDonateModal(e)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                    isGoalReached(selectedCampaign) 
-                      ? 'bg-gray-400 text-white cursor-not-allowed' 
-                      : 'bg-[#1CAC78] text-white hover:bg-[#1CAC78]'
-                  }`}
-                  disabled={isGoalReached(selectedCampaign)}
-                >
-                  <span>{isGoalReached(selectedCampaign) ? translations.goal_reached_short || 'Goal Reached' : translations.donate_now || 'Donate Now'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Donation Modal */}
-      {isDonateModalOpen && selectedCampaign && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800">{translations.donate_to || "Donate to"} {selectedCampaign.name}</h2>
-                <button 
-                  onClick={closeDonateModal}
-                  className="text-gray-500 hover:text-gray-700"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              {successMessage ? (
-                <div className="text-center py-6">
-                  <div className="mb-4 text-green-500">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">{successMessage}</h3>
-                  <p className="text-gray-600">{translations.contribution_help || "Your contribution will help make a difference."}</p>
-                </div>
-              ) : (
-                <form onSubmit={handleDonationSubmit}>
-                  <div className="mb-4">
-                    <label className="block text-gray-700 mb-1">{translations.donation_amount || "Donation Amount"} (₹)</label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        ₹
-                      </span>
-                      <input
-                        type="number"
-                        value={donationAmount}
-                        onChange={(e) => setDonationAmount(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder={translations.enter_amount || "Enter amount"}
-                        min="1"
-                        step="1"
-                        required
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Suggested amounts */}
-                  <div className="grid grid-cols-3 gap-2 mb-4">
-                    {[500, 1000, 5000, 10000, 50000].map(amount => (
-                      <button
-                        key={amount}
-                        type="button"
-                        onClick={() => setDonationAmount(amount.toString())}
-                        className={`px-4 py-2 border rounded-lg transition-colors ${
-                          donationAmount === amount.toString() 
-                            ? 'bg-blue-50 text-blue-600' 
-                            : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        ₹{amount}
-                      </button>
-                    ))}
-                  </div>
-                  
+                {isGoalReached(selectedCampaign) ? (
                   <button 
-                    type="submit"
-                    className="w-full py-3 bg-[#1CAC78] text-white rounded-lg hover:bg-[#1CAC78] transition-colors flex items-center justify-center gap-2"
-                    disabled={isSubmitting}
+                    className="px-4 py-2 rounded-lg bg-gray-400 text-white cursor-not-allowed"
+                    disabled
                   >
-                    {isSubmitting ? (
-                      <>
-                        <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                        <span>{translations.processing || "Processing..."}</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>{translations.complete_donation || "Complete Donation"}</span>
-                      </>
-                    )}
+                    {translations.goal_reached_short || 'Goal Reached'}
                   </button>
-                </form>
-              )}
+                ) : (
+                  <CampaignDonate campaign={selectedCampaign} />
+                )}
+              </div>
             </div>
           </div>
         </div>

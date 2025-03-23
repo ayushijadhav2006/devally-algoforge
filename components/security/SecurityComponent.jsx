@@ -15,6 +15,10 @@ import {
   Smartphone,
   Key,
   Info,
+  QrCode,
+  Copy,
+  Plus,
+  Eye,
 } from "lucide-react";
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -41,10 +45,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+// Import the otplib for TOTP 2FA
+import { authenticator } from "otplib";
+// Import QRCode for TOTP setup
+import { useQRCode } from "next-qrcode";
 
 const SecurityComponent = ({ role = "user" }) => {
+  // Use the QR code hook
+  const { Canvas } = useQRCode();
+
   // Password reset states
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [passwordResetSuccess, setPasswordResetSuccess] = useState("");
@@ -68,7 +79,14 @@ const SecurityComponent = ({ role = "user" }) => {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [verificationId, setVerificationId] = useState("");
-  const [step2FA, setStep2FA] = useState("initial"); // initial, phone, verification, complete
+  const [step2FA, setStep2FA] = useState("initial"); // initial, method, phone, totp, verification, complete
+  const [authMethod, setAuthMethod] = useState("phone"); // "phone" or "totp"
+
+  // TOTP states
+  const [totpSecret, setTotpSecret] = useState("");
+  const [totpUri, setTotpUri] = useState("");
+  const [showSecretKey, setShowSecretKey] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
   // MFA verification states
   const [showMFAVerificationModal, setShowMFAVerificationModal] =
@@ -295,7 +313,7 @@ const SecurityComponent = ({ role = "user" }) => {
         throw new Error("You must be logged in to enable 2FA");
       }
 
-      setStep2FA("phone");
+      setStep2FA("method");
     } catch (error) {
       if (error.code === "auth/requires-recent-login") {
         // Show re-authentication modal
@@ -409,34 +427,66 @@ const SecurityComponent = ({ role = "user" }) => {
 
   const verifyAndEnroll = async () => {
     try {
-      if (!verificationCode || verificationCode.length < 6) {
-        throw new Error("Please enter a valid verification code");
-      }
+      if (authMethod === "phone") {
+        // Phone verification logic (existing)
+        if (!verificationCode || verificationCode.length < 6) {
+          throw new Error("Please enter a valid verification code");
+        }
 
-      setIsEnabling2FA(true);
+        setIsEnabling2FA(true);
 
-      if (!user) {
-        throw new Error("You must be logged in to enable 2FA");
-      }
+        if (!user) {
+          throw new Error("You must be logged in to enable 2FA");
+        }
 
-      // Create credential
-      const cred = PhoneAuthProvider.credential(
-        verificationId,
-        verificationCode
-      );
-      const multiFactorAssertion = PhoneMultiFactorGenerator.assertion(cred);
+        // Create credential
+        const cred = PhoneAuthProvider.credential(
+          verificationId,
+          verificationCode
+        );
+        const multiFactorAssertion = PhoneMultiFactorGenerator.assertion(cred);
 
-      // Enroll the second factor
-      const multiFactorUser = multiFactor(user);
-      await multiFactorUser.enroll(multiFactorAssertion, "Phone Number");
+        // Enroll the second factor
+        const multiFactorUser = multiFactor(user);
+        await multiFactorUser.enroll(multiFactorAssertion, "Phone Number");
 
-      // Update user document to reflect 2FA status
-      if (user.uid) {
-        const userDocRef = doc(db, role === "ngo" ? "ngo" : "users", user.uid);
-        await updateDoc(userDocRef, {
-          is2FAEnabled: true,
-          phoneFor2FA: phoneNumber,
-        });
+        // Update user document to reflect 2FA status
+        if (user.uid) {
+          const userDocRef = doc(db, role === "ngo" ? "ngo" : "users", user.uid);
+          await updateDoc(userDocRef, {
+            is2FAEnabled: true,
+            phoneFor2FA: phoneNumber,
+            mfaType: "phone"
+          });
+        }
+      } else if (authMethod === "totp") {
+        // TOTP verification logic
+        if (!verificationCode || verificationCode.length < 6) {
+          throw new Error("Please enter a valid verification code");
+        }
+
+        setIsEnabling2FA(true);
+
+        if (!user) {
+          throw new Error("You must be logged in to enable 2FA");
+        }
+
+        // Verify the TOTP code
+        const isValid = authenticator.check(verificationCode, totpSecret);
+
+        if (!isValid) {
+          throw new Error("Invalid verification code. Please try again.");
+        }
+
+        // Update user document to store TOTP secret (encrypted in a real app)
+        if (user.uid) {
+          const userDocRef = doc(db, role === "ngo" ? "ngo" : "users", user.uid);
+          await updateDoc(userDocRef, {
+            is2FAEnabled: true,
+            totpSecret: totpSecret, // In production, encrypt this value
+            mfaType: "totp"
+          });
+        }
       }
 
       setIs2FAEnabled(true);
@@ -482,6 +532,8 @@ const SecurityComponent = ({ role = "user" }) => {
           await updateDoc(userDocRef, {
             is2FAEnabled: false,
             phoneFor2FA: null,
+            totpSecret: null,
+            mfaType: null
           });
         }
 
@@ -512,6 +564,42 @@ const SecurityComponent = ({ role = "user" }) => {
     }
   };
 
+  // TOTP Setup Functions
+  const setupTOTP = () => {
+    try {
+      // Generate a random secret key
+      const secret = authenticator.generateSecret();
+      setTotpSecret(secret);
+
+      // Generate the URI for the QR code
+      const uri = authenticator.keyuri(
+        user.email || "user",
+        "DevAlly App",
+        secret
+      );
+      setTotpUri(uri);
+
+      // Proceed to the TOTP verification step
+      setStep2FA("totp");
+    } catch (error) {
+      console.error("Error setting up TOTP:", error);
+      toast.error("Failed to set up authenticator app: " + error.message);
+    }
+  };
+
+  const copySecretToClipboard = () => {
+    navigator.clipboard.writeText(totpSecret)
+      .then(() => {
+        setIsCopied(true);
+        toast.success("Secret key copied to clipboard");
+        setTimeout(() => setIsCopied(false), 3000);
+      })
+      .catch((err) => {
+        console.error("Failed to copy: ", err);
+        toast.error("Failed to copy secret key");
+      });
+  };
+
   // Handle MFA verification
   const handleMFAVerification = async () => {
     setMFAError("");
@@ -526,80 +614,82 @@ const SecurityComponent = ({ role = "user" }) => {
         throw new Error("MFA resolver not found");
       }
 
-      if (!mfaVerificationId) {
-        throw new Error("Verification ID not found. Please try again.");
-      }
+      // Check if this is a TOTP verification or phone verification
+      const userDocRef = doc(db, role === "ngo" ? "ngo" : "users", user.uid);
+      const userDoc = await getDoc(userDocRef);
+      const userData = userDoc.exists() ? userDoc.data() : {};
+      
+      if (userData.mfaType === "totp" && userData.totpSecret) {
+        // TOTP verification
+        const isValid = authenticator.check(mfaVerificationCode, userData.totpSecret);
 
-      try {
-        // Create a PhoneAuthCredential with the verification ID and code
-        const credential = PhoneAuthProvider.credential(
-          mfaVerificationId,
-          mfaVerificationCode
-        );
-
-        // Create a multi-factor assertion
-        const multiFactorAssertion =
-          PhoneMultiFactorGenerator.assertion(credential);
+        if (!isValid) {
+          throw new Error("Invalid verification code. Please try again.");
+        }
 
         // Complete the sign-in
-        await mfaResolver.resolveSignIn(multiFactorAssertion);
-
-        // Close the modal
+        await signInWithEmailAndPassword(auth, reauthEmail, reauthPassword);
+        
         setShowMFAVerificationModal(false);
-        setMFAVerificationCode("");
-        setMfaVerificationId("");
-
-        // After successful MFA verification, update the password directly
-        if (pendingAction === "changePassword") {
-          try {
-            // Get the current user (should be freshly authenticated after MFA)
-            const currentUser = auth.currentUser;
-
-            if (currentUser && verificationCode) {
-              // Update the password
-              await updatePassword(currentUser, verificationCode);
-
-              // Clear form and show success
-              setVerificationCode("");
-              setPasswordResetSuccess("Password updated successfully!");
-              toast.success("Password updated successfully!");
-            }
-          } catch (passwordError) {
-            console.error("Error updating password after MFA:", passwordError);
-            setPasswordResetError(
-              passwordError.message || "Failed to update password"
-            );
-            toast.error(passwordError.message || "Failed to update password");
-          }
-        } else if (pendingAction === "enable2FA") {
+        // Execute the pending action if there was one
+        if (pendingAction === "enable2FA") {
           initiate2FA();
         } else if (pendingAction === "disable2FA") {
           await disable2FA();
         }
-
-        // Clear the pending action
         setPendingAction(null);
-      } catch (error) {
-        console.error("Error resolving MFA:", error);
-        if (error.code === "auth/invalid-verification-code") {
-          setMFAError("Invalid verification code. Please try again.");
-        } else if (error.code === "auth/argument-error") {
-          setMFAError(
-            "Invalid verification information. Please try again from the beginning."
+      } else {
+        // Phone-based verification
+        if (!mfaVerificationId) {
+          throw new Error("Verification ID not found. Please try again.");
+        }
+
+        try {
+          // Create a PhoneAuthCredential with the verification ID and code
+          const credential = PhoneAuthProvider.credential(
+            mfaVerificationId,
+            mfaVerificationCode
           );
-          // Reset the MFA flow
-          setTimeout(() => {
-            setShowMFAVerificationModal(false);
-            setPendingAction(null);
-            setMfaVerificationId("");
-            setMFAVerificationCode("");
-            if (recaptchaVerifierRef.current) {
-              recaptchaVerifierRef.current.clear();
-              recaptchaVerifierRef.current = null;
-            }
-          }, 3000);
-        } else {
-          setMFAError(error.message || "Failed to verify code");
+
+          // Create a multi-factor assertion
+          const multiFactorAssertion =
+            PhoneMultiFactorGenerator.assertion(credential);
+
+          // Complete sign-in
+          await mfaResolver.resolveSignIn(multiFactorAssertion);
+
+          setShowMFAVerificationModal(false);
+
+          // Execute the pending action if there was one
+          if (pendingAction === "enable2FA") {
+            initiate2FA();
+          } else if (pendingAction === "disable2FA") {
+            await disable2FA();
+          }
+          setPendingAction(null);
+        } catch (error) {
+          console.error("Error resolving MFA sign-in:", error);
+          if (error.code === "auth/invalid-verification-code") {
+            setMFAError("Invalid verification code. Please try again.");
+          } else if (error.code === "auth/argument-error") {
+            setMFAError(
+              "Invalid verification information. Please try again from the beginning."
+            );
+            // Reset the MFA flow
+            setTimeout(() => {
+              setShowMFAVerificationModal(false);
+              setPendingAction(null);
+              setMfaVerificationId("");
+              setMFAVerificationCode("");
+              if (recaptchaVerifierRef.current) {
+                recaptchaVerifierRef.current.clear();
+                recaptchaVerifierRef.current = null;
+              }
+            }, 3000);
+          } else {
+            setMFAError(error.message || "Failed to verify code");
+          }
+          throw error;
         }
       }
     } catch (error) {
@@ -797,6 +887,60 @@ const SecurityComponent = ({ role = "user" }) => {
               </Alert>
             )}
 
+            {/* 2FA Method Selection */}
+            {step2FA === "method" && (
+              <div className="space-y-4 p-5 border rounded-lg bg-gray-50 border-gray-200">
+                <h4 className="font-medium text-gray-700">
+                  Choose Authentication Method
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div 
+                    className={`p-4 border rounded-lg cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-colors
+                      ${authMethod === "phone" ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-white"}`}
+                    onClick={() => setAuthMethod("phone")}
+                  >
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Smartphone className="h-5 w-5 text-blue-500" />
+                      <h5 className="font-medium">SMS Authentication</h5>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Receive verification codes via SMS on your phone.
+                    </p>
+                  </div>
+                  
+                  <div 
+                    className={`p-4 border rounded-lg cursor-pointer hover:border-purple-300 hover:bg-purple-50 transition-colors
+                      ${authMethod === "totp" ? "border-purple-500 bg-purple-50" : "border-gray-200 bg-white"}`}
+                    onClick={() => setAuthMethod("totp")}
+                  >
+                    <div className="flex items-center space-x-2 mb-2">
+                      <QrCode className="h-5 w-5 text-purple-500" />
+                      <h5 className="font-medium">Authenticator App</h5>
+                    </div>
+                    <p className="text-sm text-gray-600">
+                      Use an authenticator app like Google Authenticator or Authy.
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-3 mt-4">
+                  <Button
+                    onClick={() => authMethod === "phone" ? setStep2FA("phone") : setupTOTP()}
+                    className="bg-[#1CAC78] hover:bg-[#158f63]"
+                  >
+                    Continue with {authMethod === "phone" ? "SMS" : "Authenticator App"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep2FA("initial")}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Phone Authentication */}
             {step2FA === "phone" && (
               <div className="space-y-4 p-5 border rounded-lg bg-gray-50 border-gray-200">
                 <h4 className="font-medium text-gray-700">Set Up Your Phone</h4>
@@ -827,16 +971,121 @@ const SecurityComponent = ({ role = "user" }) => {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setStep2FA("initial")}
+                    onClick={() => setStep2FA("method")}
                     disabled={isEnabling2FA}
                   >
-                    Cancel
+                    Back
                   </Button>
                 </div>
               </div>
             )}
 
-            {step2FA === "verification" && (
+            {/* TOTP Setup */}
+            {step2FA === "totp" && (
+              <div className="space-y-4 p-5 border rounded-lg bg-gray-50 border-gray-200">
+                <h4 className="font-medium text-gray-700">
+                  Set Up Authenticator App
+                </h4>
+                <div className="space-y-4">
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
+                    <li>Install an authenticator app like Google Authenticator, Authy, or Microsoft Authenticator</li>
+                    <li>Scan the QR code below with your authenticator app</li>
+                    <li>Enter the 6-digit verification code from the app</li>
+                  </ol>
+                  
+                  <div className="bg-white p-4 rounded-lg border border-gray-200 flex flex-col items-center">
+                    {totpUri && (
+                      <div className="mb-4 p-2 bg-white rounded-lg border border-gray-200 inline-flex">
+                        <Canvas
+                          text={totpUri}
+                          options={{
+                            level: 'M',
+                            margin: 3,
+                            scale: 4,
+                            width: 200,
+                            color: {
+                              dark: '#000000',
+                              light: '#FFFFFF',
+                            },
+                          }}
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="mt-2 w-full">
+                      <p className="text-xs text-gray-500 mb-1">
+                        If you can't scan the QR code, enter this secret key manually:
+                      </p>
+                      <div className="flex items-center space-x-2">
+                        <div className="relative flex-1">
+                          <Input
+                            type={showSecretKey ? "text" : "password"}
+                            value={totpSecret}
+                            readOnly
+                            className="pr-10 font-mono text-sm"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 py-2 text-gray-400 hover:text-gray-700"
+                            onClick={() => setShowSecretKey(!showSecretKey)}
+                          >
+                            {showSecretKey ? <X size={16} /> : <Eye size={16} />}
+                          </Button>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={copySecretToClipboard}
+                          className={isCopied ? "bg-green-50 text-green-600 border-green-200" : ""}
+                        >
+                          {isCopied ? (
+                            <><CheckCircle size={16} className="mr-1" /> Copied</>
+                          ) : (
+                            <><Copy size={16} className="mr-1" /> Copy</>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2 mt-4">
+                    <Label htmlFor="verification-code" className="text-sm">
+                      Enter the 6-digit verification code from your authenticator app
+                    </Label>
+                    <Input
+                      id="verification-code"
+                      type="text"
+                      placeholder="123456"
+                      className="border-gray-300 bg-white"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3 mt-4">
+                  <Button
+                    onClick={verifyAndEnroll}
+                    disabled={isEnabling2FA}
+                    className="bg-[#1CAC78] hover:bg-[#158f63]"
+                  >
+                    {isEnabling2FA ? "Verifying..." : "Verify and Enable 2FA"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep2FA("method")}
+                    disabled={isEnabling2FA}
+                  >
+                    Back
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Common verification step for both methods */}
+            {step2FA === "verification" && authMethod === "phone" && (
               <div className="space-y-4 p-5 border rounded-lg bg-gray-50 border-gray-200">
                 <h4 className="font-medium text-gray-700">Verify Your Phone</h4>
                 <div className="space-y-2">
@@ -876,8 +1125,7 @@ const SecurityComponent = ({ role = "user" }) => {
                 <CheckCircle className="h-4 w-4 text-blue-500" />
                 <AlertDescription className="ml-2 text-blue-700">
                   Your account is protected with two-factor authentication.
-                  You'll need to provide a verification code from your phone
-                  when signing in.
+                  You'll need to provide a verification code when signing in.
                 </AlertDescription>
               </Alert>
             )}

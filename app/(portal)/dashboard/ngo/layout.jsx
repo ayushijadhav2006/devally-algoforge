@@ -190,7 +190,7 @@ const Layout = ({ children }) => {
       { name: "Inventory", icon: Store, href: "/dashboard/ngo/inventory" },
       {
         name: "Merchandise",
-        icon: PackagePlus,
+        icon: ShoppingCart,
         href: "/dashboard/ngo/merchandise",
       },
     ],
