@@ -35,7 +35,7 @@
   import { storage } from "@/lib/firebase";
   import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
   import toast from "react-hot-toast";
-  import { parseUnits } from "ethers";
+  import { parseUnits } from "ethers/lib/utils";
   import ResourcesDonation from "@/components/ngo/ResourcesDonation";
   import { CryptoDonationTable } from "@/components/CryptoDonationTable";
   import { CryptoPayoutButton } from "@/components/CryptoPayoutButton";
