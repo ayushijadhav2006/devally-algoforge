@@ -382,7 +382,7 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
               </div>
               {isOpen && (
                 <span className="ml-2 text-xl font-bold">
-                  {translations.ngo_connect || "NGO-Connect"}
+                  {translations.ngo_connect || "SMILE-SHARE"}
                 </span>
               )}
             </div>
@@ -457,7 +457,7 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
                     }}
                   >
                     <FileText className="h-6 w-6" />
-                    {isOpen && <span className="ml-3">{translateNavItem("Chat with PDF")}</span>}
+                    {isOpen && <span className="ml-3">{translations.chat_report || "Chat with PDF"}</span>}
                   </Link>
                 </li>
               </ul>
