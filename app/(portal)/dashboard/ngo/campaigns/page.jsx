@@ -1,8 +1,8 @@
-
 'use client';
 import { useState, useEffect } from 'react';
 import { getCampaigns, createCampaign, uploadImage } from '@/lib/campaign';
 import { PlusCircle, Search, Calendar, Clock, Users, MapPin } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState([]);
@@ -23,11 +23,26 @@ export default function CampaignsPage() {
     image: '',
   });
   
+  // Add isExpired function
+  const isExpired = (date) => {
+    if (!date) return false;
+    try {
+      const campaignDate = new Date(date);
+      const now = new Date();
+      return campaignDate < now;
+    } catch (error) {
+      console.error("Error checking expiry:", error);
+      return false;
+    }
+  };
+
   useEffect(() => {
     async function loadCampaigns() {
       try {
         const campaignsData = await getCampaigns();
-        setCampaigns(campaignsData);
+        // Filter out expired campaigns
+        const activeCampaigns = campaignsData.filter(campaign => !isExpired(campaign.date));
+        setCampaigns(activeCampaigns);
       } catch (error) {
         console.error("Error loading campaigns:", error);
       } finally {
@@ -38,11 +53,14 @@ export default function CampaignsPage() {
     loadCampaigns();
   }, []);
 
-  const filteredCampaigns = campaigns.filter(campaign =>
-    campaign.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    campaign.shortdesc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    campaign.mission?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCampaigns = campaigns
+    .filter(campaign => !isExpired(campaign.date)) // Double check for any new expirations
+    .filter(campaign =>
+      campaign.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      campaign.shortdesc?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      campaign.mission?.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+    .sort((a, b) => new Date(a.date) - new Date(b.date)); // Sort by date ascending
 
   const handleCampaignClick = (campaign) => {
     setSelectedCampaign(campaign);
@@ -73,9 +91,18 @@ export default function CampaignsPage() {
     setLoading(true);
     
     try {
+      if (!auth.currentUser) {
+        throw new Error('You must be logged in to create a campaign');
+      }
+
       // Format the date and time
       const dateTimeString = `${newCampaign.date}T${newCampaign.time}:00`;
       const dateObj = new Date(dateTimeString);
+      
+      // Validate the date
+      if (isNaN(dateObj.getTime())) {
+        throw new Error('Invalid date format');
+      }
       
       let imageUrl = '';
       if (imageFile) {
@@ -84,7 +111,7 @@ export default function CampaignsPage() {
       
       // Create the campaign data object following your Firebase structure
       const campaignData = {
-        date: dateObj,
+        date: dateObj.toISOString(), // Store as ISO string for consistency
         image: imageUrl,
         location: newCampaign.location,
         mission: newCampaign.mission,
@@ -92,6 +119,11 @@ export default function CampaignsPage() {
         shortdesc: newCampaign.shortdesc,
         volunteers: parseInt(newCampaign.volunteers) || 0,
         requiredAmount: parseFloat(newCampaign.requiredAmount) || 0,
+        category: newCampaign.category || 'Other',
+        ngoId: auth.currentUser.uid, // Add NGO ID
+        ngoName: auth.currentUser.displayName || 'Unknown NGO',
+        createdAt: new Date().toISOString(),
+        raisedAmount: 0
       };
       
       // Add to Firebase
@@ -116,12 +148,14 @@ export default function CampaignsPage() {
         volunteers: '',
         image: '',
         requiredAmount: '',
+        category: '',
       });
       setImageFile(null);
       setIsCreatingCampaign(false);
+      toast.success('Campaign created successfully');
     } catch (error) {
       console.error("Error creating campaign:", error);
-      alert("Failed to create campaign. Please try again.");
+      toast.error(error.message || "Failed to create campaign. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -130,15 +164,29 @@ export default function CampaignsPage() {
   // Format date for display
   const formatDate = (date) => {
     if (!date) return 'TBD';
-    const options = { year: 'numeric', month: 'long', day: 'numeric' };
-    return new Date(date).toLocaleDateString(undefined, options);
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) return 'Invalid Date';
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      return dateObj.toLocaleDateString(undefined, options);
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return 'Invalid Date';
+    }
   };
   
   // Format time for display
   const formatTime = (date) => {
     if (!date) return 'TBD';
-    const options = { hour: '2-digit', minute: '2-digit' };
-    return new Date(date).toLocaleTimeString(undefined, options);
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) return 'Invalid Time';
+      const options = { hour: '2-digit', minute: '2-digit' };
+      return dateObj.toLocaleTimeString(undefined, options);
+    } catch (error) {
+      console.error("Error formatting time:", error);
+      return 'Invalid Time';
+    }
   };
 
   return (

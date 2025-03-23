@@ -265,6 +265,8 @@ const DonateNow = ({ ngoData }) => {
     async (amount) => {
       const donationData = {
         amount: cryptoAmount,
+        cryptoAmount: cryptoAmount,
+        cryptoType: "ETH",
         userId: auth.currentUser.uid,
         ngoId: ngoData.ngoId,
         name: onlineFormData?.name || "",
@@ -272,6 +274,7 @@ const DonateNow = ({ ngoData }) => {
         phone: onlineFormData?.phone || "",
         timestamp: new Date().toISOString(),
         transactionType: "crypto",
+        donationType: "Crypto",
       };
 
       console.log("DONATIONDATA", donationData, ngoData.ngoId);

@@ -7,6 +7,7 @@ import Script from "next/script";
 import { AuthProvider } from "@/context/AuthContext";
 import WebProvider from "@/providers/WebProvider";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { GamificationProvider } from "@/context/GamificationContext";
 import "leaflet/dist/leaflet.css";
 // import { ThirdwebProvider } from "@thirdweb-dev/react";
 
@@ -21,17 +22,19 @@ export default function RootLayout({ children }) {
     <html lang="en" suppressHydrationWarning>
       <head />
       <body className={cn("min-h-screen bg-background font-sans antialiased")}>
-        {/* <ThirdwebProvider activeChain="sepolia"> */}
-        <WebProvider>
-          <LanguageProvider>
-            <AuthProvider>
-              <div className="relative flex min-h-screen flex-col">
-                <main className="flex-1">{children}</main>
-              </div>
-            </AuthProvider>
-          </LanguageProvider>
-        </WebProvider>
-        {/* </ThirdwebProvider> */}
+          <WebProvider>
+            <LanguageProvider>
+              <AuthProvider>
+                <GamificationProvider>
+                  <div className="relative flex min-h-screen flex-col">
+                    <main className="flex-1">
+                      {children}
+                    </main>
+                  </div>
+                </GamificationProvider>
+              </AuthProvider>
+            </LanguageProvider>
+          </WebProvider>
         <Toaster />
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"

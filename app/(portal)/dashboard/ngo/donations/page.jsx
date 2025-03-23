@@ -35,7 +35,7 @@ import { Input } from "@/components/ui/input";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import toast from "react-hot-toast";
-import { parseUnits } from "ethers/lib/utils";
+import { parseUnits } from "ethers";
 import ResourcesDonation from "@/components/ngo/ResourcesDonation";
 
 export default function NGODonationsPage() {
@@ -273,51 +273,7 @@ export default function NGODonationsPage() {
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-2xl font-bold">NGO Donations Dashboard</h1>
-      <div className="flex flex-col-reverse gap-3 mt-4 justify-between items-center mb-6">
-        {/* <div className="flex items-center gap-2">
-          <ResourcesDonation />
-          <OnlineDonation />
-          <CashDonation />
-        </div> */}
-        {/* <d  iv className="flex items-center gap-4">
-          {ngoProfile?.donationsData?.isCryptoTransferEnabled &&
-            ngoProfile?.donationsData?.ngoOwnerAddContract && (
-              <>
-                <div className="text-green-600 font-semibold px-4 py-2 bg-green-100 rounded-full">
-                  Balance:{" "}
-                  {ngoBalancePending
-                    ? "Loading..."
-                    : ngoBalanceError
-                      ? "Error loading balance"
-                      : `${formatEther(ngoBalance || 0n)} NGC`}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Amount (NGC)"
-                    value={payoutAmount}
-                    onChange={(e) => setPayoutAmount(e.target.value)}
-                    min="1"
-                    max={formatEther(ngoBalance || 0n)}
-                    className="w-32"
-                  />
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="w-48"
-                  />
-                  <Button
-                    onClick={handleRequestPayout}
-                    disabled={isSubmitting || !payoutAmount || !proofImage}
-                  >
-                    {isSubmitting ? "Processing..." : "Request Payout"}
-                  </Button>
-                </div>
-              </>
-            )}
-        </d> */}
-      </div>
+      <div className="flex flex-col-reverse md:flex-row gap-3 mt-4 justify-between items-center mb-6"></div>
 
       {/* Stats and Charts - Always visible */}
       <DonationsDashboard />
