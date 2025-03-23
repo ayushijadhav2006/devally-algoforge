@@ -39,6 +39,7 @@ const ActivityFormsPage = () => {
   const [emailInvitations, setEmailInvitations] = useState([]);
   const [newEmail, setNewEmail] = useState("");
   const [showEmailInput, setShowEmailInput] = useState(false);
+  const [totalResponses, setTotalResponses] = useState(0);
 
   useEffect(() => {
     const fetchNgoId = async () => {
@@ -62,6 +63,7 @@ const ActivityFormsPage = () => {
             ...data,
             participationFormStatus:
               data.participationFormStatus || "not-accepting",
+            feedbackFormStatus: data.feedbackFormStatus || "not-accepting",
             noOfParticipants: data.noOfParticipants || 0,
             acceptingParticipants: data.acceptingParticipants || 0,
           });
@@ -76,12 +78,38 @@ const ActivityFormsPage = () => {
     return () => unsubscribe();
   }, [ngoId, activityId]);
 
+  useEffect(() => {
+    if (!activityId) return;
+
+    const responsesRef = collection(
+      db,
+      "activities",
+      activityId,
+      "forms",
+      "feedback",
+      "responses"
+    );
+
+    const unsubscribe = onSnapshot(responsesRef, (snapshot) => {
+      setTotalResponses(snapshot.size);
+    });
+
+    return () => unsubscribe();
+  }, [activityId]);
+
   const handleToggle = async (formType) => {
-    const statusField = "participationFormStatus";
+    const statusField =
+      formType === "feedback"
+        ? "feedbackFormStatus"
+        : "participationFormStatus";
     const newStatus =
       activityData[statusField] === "accepting" ? "not-accepting" : "accepting";
 
-    if (newStatus === "accepting" && !activityData["acceptingParticipants"]) {
+    if (
+      formType === "participation" &&
+      newStatus === "accepting" &&
+      !activityData["acceptingParticipants"]
+    ) {
       setShowParticipantDialog(true);
     } else {
       await updateActivityDoc({ [statusField]: newStatus });
@@ -147,7 +175,7 @@ const ActivityFormsPage = () => {
     setShowParticipantDialog(true);
   };
 
-  const FormCard = ({ title, status }) => {
+  const ParticipationFormCard = ({ title, status }) => {
     const currentCount = activityData?.["noOfParticipants"] || 0;
     const limit = activityData?.["acceptingParticipants"];
     const isAtLimit = limit && currentCount >= limit;
@@ -201,19 +229,71 @@ const ActivityFormsPage = () => {
     );
   };
 
+  const FeedbackFormCard = ({ title, status }) => {
+    const isAccepting = status === "accepting";
+
+    return (
+      <Card className="hover:shadow-md transition-shadow">
+        <CardHeader>
+          <CardTitle className="flex justify-between items-center">
+            {title}
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={isAccepting}
+                onCheckedChange={() => handleToggle("feedback")}
+              />
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex justify-between items-center">
+          <div className="space-y-2">
+            <p>
+              Status:{" "}
+              <span className="capitalize font-medium">
+                {status || "not-accepting"}
+              </span>
+            </p>
+            <p>
+              Total Responses:{" "}
+              <span className="font-medium">{totalResponses}</span>
+            </p>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Link
+              className="bg-[#1CAC78] hover:bg-green-500 text-white p-2 rounded-lg flex items-center"
+              href={`/dashboard/ngo/activities/${activityId}/feedback-form`}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit Form
+            </Link>
+            <Link
+              className="bg-[#1CAC78] hover:bg-green-500 text-white p-2 rounded-lg flex items-center"
+              href={`/dashboard/ngo/activities/${activityId}/forms/feedback-responses`}
+            >
+              <MoveUpRight className="mr-2 h-4 w-4" />
+              View Responses
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   if (loading) {
     return <div className="p-4">Loading...</div>;
   }
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-6">
-        Activity Registeration Forms Dashboard
-      </h1>
-      <div className="grid grid-cols-1 gap-4  mb-8">
-        <FormCard
+      <h1 className="text-2xl font-bold mb-6">Activity Forms Dashboard</h1>
+      <div className="grid grid-cols-1 gap-4 mb-8">
+        <ParticipationFormCard
           title="Participation Form"
           status={activityData?.participationFormStatus}
+        />
+        <FeedbackFormCard
+          title="Feedback Form"
+          status={activityData?.feedbackFormStatus}
         />
       </div>
 

@@ -143,6 +143,8 @@ const Layout = ({ children }) => {
           setIsOpen={setIsSideNavOpen}
           navConfig={NavConfig}
           type="volunteer"
+          notifications={notifications}
+          notificationsLoading={notificationsLoading}
         />
         <main
           className="flex-1 overflow-y-auto"
