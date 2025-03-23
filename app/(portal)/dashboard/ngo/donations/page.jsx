@@ -288,6 +288,7 @@ export default function NGODonationsPage() {
           <TabsTrigger value="cash">Cash</TabsTrigger>
           <TabsTrigger value="online">Online</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
+          <TabsTrigger value="cryptocurrency">Cryptocurrency</TabsTrigger>
         </TabsList>
 
         <TabsContent value="donors">
@@ -304,6 +305,10 @@ export default function NGODonationsPage() {
 
         <TabsContent value="resources">
           <ResDonationTable />
+        </TabsContent>
+
+        <TabsContent value="cryptocurrency">
+          <CryptoDonationTable ngoProfile={ngoProfile} userId={user?.uid} />
         </TabsContent>
       </Tabs>
     </div>
