@@ -47,6 +47,7 @@ import {
 import NGODetails from "@/components/ngo/single-ngo/NGODetails";
 import NGOActivities from "@/components/NGOActivities";
 import DonateNow from "@/components/ngo/single-ngo/DonateNow";
+import CryptoDonation from "@/components/ngo/single-ngo/CryptoDonation";
 
 export default function SingleNGOPage() {
   const params = useParams();
@@ -339,6 +340,11 @@ function InfoTabs({ ngo, ngoId, ethPrice, activeTab, setActiveTab }) {
                     <TabsTrigger value="online">Online</TabsTrigger>
                   )}
 
+                  {/* Show crypto tab if enabled */}
+                  {ngo.donationsData?.isCryptoTransferEnabled && (
+                    <TabsTrigger value="crypto">Crypto</TabsTrigger>
+                  )}
+
                   {/* Show bank transfer tab if enabled */}
                   {ngo.donationsData?.isBankTransferEnabled && (
                     <TabsTrigger value="bank">Bank</TabsTrigger>
@@ -375,6 +381,13 @@ function InfoTabs({ ngo, ngoId, ethPrice, activeTab, setActiveTab }) {
                 {ngo.donationsData?.isCryptoTransferEnabled && (
                   <TabsContent value="online" className="mt-0">
                     <DonateNow ngoData={ngo} ethPrice={ethPrice} />
+                  </TabsContent>
+                )}
+
+                {/* Crypto donation content - show if enabled */}
+                {ngo.donationsData?.isCryptoTransferEnabled && (
+                  <TabsContent value="crypto" className="mt-0">
+                    <CryptoDonation ngoData={ngo} />
                   </TabsContent>
                 )}
 

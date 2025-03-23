@@ -22,20 +22,76 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import Joyride from "react-joyride";
 import { TranslationModal } from "@/components/TranslationModal";
 import { useLanguage } from "@/context/LanguageContext";
+import NotificationsPopup from "@/components/NotificationsPopup";
+import { doc, onSnapshot } from "firebase/firestore";
 
-export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
+export function SideNav({
+  isOpen,
+  setIsOpen,
+  navConfig,
+  type,
+  notifications = [],
+  notificationsLoading = true,
+}) {
   const [isMobile, setIsMobile] = useState(false);
   const [runSidebarTour, setRunSidebarTour] = useState(false);
   const [showTranslationModal, setShowTranslationModal] = useState(false);
+  const [localNotifications, setLocalNotifications] = useState([]);
   const pathname = usePathname();
   const navRefs = useRef({});
   const router = useRouter();
   const { language, translations } = useLanguage();
+
+  // Use provided notifications if available, otherwise use the locally fetched ones
+  const displayNotifications =
+    notifications.length > 0 ? notifications : localNotifications;
+  const isNotificationsReady =
+    notifications.length > 0 || !notificationsLoading;
+
+  // Add notifications listener only if no notifications are provided externally
+  useEffect(() => {
+    // Only set up our own listener if no notifications are provided via props
+    if (notifications.length === 0) {
+      const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+        if (user) {
+          // Set up notifications listener
+          const notificationsRef = doc(db, "notifications", user.uid);
+          const unsubscribeNotifications = onSnapshot(
+            notificationsRef,
+            (doc) => {
+              if (doc.exists()) {
+                const notificationsData = doc.data()?.notifications || [];
+                // Sort notifications by timestamp (newest first)
+                const sortedNotifications = [...notificationsData].sort(
+                  (a, b) => {
+                    const dateA =
+                      a.timestamp?.toDate?.() || new Date(a.timestamp || 0);
+                    const dateB =
+                      b.timestamp?.toDate?.() || new Date(b.timestamp || 0);
+                    return dateB - dateA;
+                  }
+                );
+                setLocalNotifications(sortedNotifications);
+              } else {
+                setLocalNotifications([]);
+              }
+            }
+          );
+
+          return () => unsubscribeNotifications();
+        } else {
+          setLocalNotifications([]);
+        }
+      });
+
+      return () => unsubscribeAuth();
+    }
+  }, [notifications.length]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -124,7 +180,7 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
 
   // Helper function to translate nav item names
   const translateNavItem = (name) => {
-    const key = name.toLowerCase().replace(/\s+/g, '_');
+    const key = name.toLowerCase().replace(/\s+/g, "_");
     return translations[key] || name;
   };
 
@@ -134,7 +190,7 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
       {
         target: ".nav-container",
         content:
-          translations.sidebar_tour_intro || 
+          translations.sidebar_tour_intro ||
           "This sidebar gives you easy access to all the features of your NGO management system.",
         placement: "right",
         disableBeacon: true,
@@ -145,7 +201,9 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
     if (navConfig.mainNavItems?.length) {
       steps.push({
         target: ".main-nav-section",
-        content: translations.main_nav_description || "These are your primary navigation options.",
+        content:
+          translations.main_nav_description ||
+          "These are your primary navigation options.",
         placement: "right",
       });
 
@@ -155,7 +213,7 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
           steps.push({
             target: `#nav-${item.name.toLowerCase()}`,
             content:
-              translations.dashboard_description || 
+              translations.dashboard_description ||
               "Access your main dashboard to see an overview of all activities and metrics.",
             placement: "right",
           });
@@ -163,7 +221,7 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
           steps.push({
             target: `#nav-${item.name.toLowerCase()}`,
             content:
-              translations.reports_description || 
+              translations.reports_description ||
               "View and generate detailed reports about your NGO's operations and impact.",
             placement: "right",
           });
@@ -176,7 +234,7 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
       steps.push({
         target: ".management-nav-section",
         content:
-          translations.management_section_description || 
+          translations.management_section_description ||
           "This section helps you manage all your NGO's operational activities.",
         placement: "right",
       });
@@ -187,7 +245,7 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
           steps.push({
             target: `#nav-${item.name.toLowerCase()}`,
             content:
-              translations.activities_description || 
+              translations.activities_description ||
               "Create and manage your NGO's activities, events, and campaigns.",
             placement: "right",
           });
@@ -195,7 +253,7 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
           steps.push({
             target: `#nav-${item.name.toLowerCase()}`,
             content:
-              translations.members_description || 
+              translations.members_description ||
               "Manage your team members, volunteers, and their permissions.",
             placement: "right",
           });
@@ -207,8 +265,9 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
     if (navConfig.financeNavItems?.length) {
       steps.push({
         target: ".finance-nav-section",
-        content: translations.finance_section_description || 
-                "Track all financial aspects of your NGO in this section.",
+        content:
+          translations.finance_section_description ||
+          "Track all financial aspects of your NGO in this section.",
         placement: "right",
       });
 
@@ -217,8 +276,9 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
         if (item.name === "Donations") {
           steps.push({
             target: `#nav-${item.name.toLowerCase()}`,
-            content: translations.donations_description || 
-                    "Track and manage all donations received by your NGO.",
+            content:
+              translations.donations_description ||
+              "Track and manage all donations received by your NGO.",
             placement: "right",
           });
         }
@@ -229,8 +289,9 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
     if (navConfig.ProductNavItems?.length) {
       steps.push({
         target: ".product-nav-section",
-        content: translations.product_section_description || 
-                "Manage your NGO's inventory and products in this section.",
+        content:
+          translations.product_section_description ||
+          "Manage your NGO's inventory and products in this section.",
         placement: "right",
       });
 
@@ -241,10 +302,10 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
             target: `#nav-${item.name.toLowerCase()}`,
             content:
               item.name === "Products"
-                ? (translations.products_description || 
-                  "Create and manage products your NGO offers or distributes.")
-                : (translations.inventory_description || 
-                  "Keep track of your NGO's inventory and supplies."),
+                ? translations.products_description ||
+                  "Create and manage products your NGO offers or distributes."
+                : translations.inventory_description ||
+                  "Keep track of your NGO's inventory and supplies.",
             placement: "right",
           });
         }
@@ -255,8 +316,9 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
     if (navConfig.bottomNavItems?.length) {
       steps.push({
         target: ".bottom-nav-section",
-        content: translations.bottom_nav_description || 
-                "Access important account and system settings here.",
+        content:
+          translations.bottom_nav_description ||
+          "Access important account and system settings here.",
         placement: "right",
       });
     }
@@ -264,15 +326,18 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
     // Add step for the logout button
     steps.push({
       target: "#logout-button",
-      content: translations.logout_description || "Click here to safely log out of your account.",
+      content:
+        translations.logout_description ||
+        "Click here to safely log out of your account.",
       placement: "right",
     });
 
     // Add step for the translation button
     steps.push({
       target: "#translate-button",
-      content: translations.translate_description || 
-              "Click here to change the language of the platform.",
+      content:
+        translations.translate_description ||
+        "Click here to change the language of the platform.",
       placement: "right",
     });
 
@@ -303,7 +368,9 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
               }}
             >
               <item.icon className="h-6 w-6" />
-              {isOpen && <span className="ml-3">{translateNavItem(item.name)}</span>}
+              {isOpen && (
+                <span className="ml-3">{translateNavItem(item.name)}</span>
+              )}
             </Link>
           </li>
         );
@@ -352,6 +419,33 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
       document.querySelectorAll(".spotlight-active").forEach((el) => {
         el.classList.remove("spotlight-active");
       });
+    }
+  };
+
+  // Handle notification read updates from the NotificationsPopup
+  const handleMarkAsRead = (index, markAllRead = false) => {
+    if (markAllRead) {
+      // If notifications are provided via props, we need to call parent update
+      // Otherwise we just update local state
+      if (notifications.length > 0 && onMarkAsRead) {
+        onMarkAsRead(null, true);
+      } else {
+        setLocalNotifications((prev) =>
+          prev.map((notification) => ({ ...notification, read: true }))
+        );
+      }
+    } else if (index !== null && index >= 0) {
+      // If notifications are provided via props, we need to call parent update
+      // Otherwise we just update local state
+      if (notifications.length > 0 && onMarkAsRead) {
+        onMarkAsRead(index);
+      } else if (index < localNotifications.length) {
+        setLocalNotifications((prev) => {
+          const updated = [...prev];
+          updated[index] = { ...updated[index], read: true };
+          return updated;
+        });
+      }
     }
   };
 
@@ -466,38 +560,56 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
 
           <div className="mt-auto bottom-nav-section">
             {isOpen && <div className="my-4 border-t border-gray-200" />}
-            {renderNavItems(navConfig.bottomNavItems, "bottom-nav-items")}
-            
-            {/* Translate Button */}
-            <button
-              id="translate-button"
-              className={cn(
-                "flex items-center rounded-lg p-2 text-gray-700 transition-colors duration-200 w-full",
-                "hover:bg-[#1CAC78] hover:bg-opacity-10 hover:text-[#1CAC78]",
-                !isOpen && "justify-center"
+            <div className="py-2">
+              {/* Notifications Popup */}
+              {auth.currentUser && isNotificationsReady && (
+                <NotificationsPopup
+                  notifications={displayNotifications}
+                  onMarkAsRead={handleMarkAsRead}
+                />
               )}
-              variant="none"
-              onClick={() => setShowTranslationModal(true)}
-            >
-              <Globe className="h-6 w-6" />
-              {isOpen && <span className="ml-3">{translations.translate || "Translate"}</span>}
-            </button>
 
-            <button
-              id="logout-button"
-              className={cn(
-                "flex items-center rounded-lg p-2 text-gray-700 transition-colors duration-200 w-full",
-                pathname === "/logout"
-                  ? "bg-[#1CAC78] text-white"
-                  : "hover:bg-[#1CAC78] hover:bg-opacity-10 hover:text-[#1CAC78]",
-                !isOpen && "justify-center"
-              )}
-              variant="none"
-              onClick={signOutHandler}
-            >
-              <LogOut className="h-6 w-6" />
-              {isOpen && <span className="ml-3">{translations.logout || "Logout"}</span>}
-            </button>
+              {renderNavItems(navConfig.bottomNavItems, "bottom-nav-items")}
+
+              {/* Translate Button */}
+              <button
+                id="translate-button"
+                className={cn(
+                  "flex items-center rounded-lg p-2 text-gray-700 transition-colors duration-200 w-full",
+                  "hover:bg-[#1CAC78] hover:bg-opacity-10 hover:text-[#1CAC78]",
+                  !isOpen && "justify-center"
+                )}
+                variant="none"
+                onClick={() => setShowTranslationModal(true)}
+              >
+                <Globe className="h-6 w-6" />
+                {isOpen && (
+                  <span className="ml-3">
+                    {translations.translate || "Translate"}
+                  </span>
+                )}
+              </button>
+
+              <button
+                id="logout-button"
+                className={cn(
+                  "flex items-center rounded-lg p-2 text-gray-700 transition-colors duration-200 w-full",
+                  pathname === "/logout"
+                    ? "bg-[#1CAC78] text-white"
+                    : "hover:bg-[#1CAC78] hover:bg-opacity-10 hover:text-[#1CAC78]",
+                  !isOpen && "justify-center"
+                )}
+                variant="none"
+                onClick={signOutHandler}
+              >
+                <LogOut className="h-6 w-6" />
+                {isOpen && (
+                  <span className="ml-3">
+                    {translations.logout || "Logout"}
+                  </span>
+                )}
+              </button>
+            </div>
             <button
               id="toggle-nav-button"
               className={cn(
@@ -510,7 +622,9 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
               {isOpen ? (
                 <>
                   <ChevronLeft className="h-6 w-6" />
-                  <span className="ml-3">{translations.collapse || "Collapse"}</span>
+                  <span className="ml-3">
+                    {translations.collapse || "Collapse"}
+                  </span>
                 </>
               ) : (
                 <>
@@ -523,9 +637,9 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
       </motion.nav>
 
       {/* Translation Modal */}
-      <TranslationModal 
-        isOpen={showTranslationModal} 
-        onClose={() => setShowTranslationModal(false)} 
+      <TranslationModal
+        isOpen={showTranslationModal}
+        onClose={() => setShowTranslationModal(false)}
       />
 
       {/* Sidebar Tour */}
