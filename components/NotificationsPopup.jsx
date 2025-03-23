@@ -72,7 +72,7 @@ export default function NotificationsPopup({
             });
 
             // Call the parent component's handler if provided
-            if (onMarkAsRead) {
+            if (typeof onMarkAsRead === "function") {
               onMarkAsRead(index);
             }
           }
@@ -108,7 +108,7 @@ export default function NotificationsPopup({
       });
 
       // Call the parent component's handler if provided
-      if (onMarkAsRead) {
+      if (typeof onMarkAsRead === "function") {
         onMarkAsRead(null, true); // Pass true to indicate marking all as read
       }
 

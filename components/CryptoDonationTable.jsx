@@ -50,7 +50,10 @@ import { formatEther } from "viem";
 import { CryptoPayoutButton } from "@/components/CryptoPayoutButton";
 import CryptoDonation from "@/components/ngo/CryptoDonation";
 
-export function CryptoDonationTable({ ngoProfile: propNgoProfile, userId: propUserId }) {
+export function CryptoDonationTable({
+  ngoProfile: propNgoProfile,
+  userId: propUserId,
+}) {
   const [userData, setUserData] = useState(null);
   const [ngoId, setNgoId] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -75,10 +78,10 @@ export function CryptoDonationTable({ ngoProfile: propNgoProfile, userId: propUs
         }
 
         const data = userDoc.data();
-        
+
         // Fetch NGO profile for additional data
         let ngoProfile = propNgoProfile; // Use prop if available
-        let ngoIdToUse = propUserId;     // Use prop if available
+        let ngoIdToUse = propUserId; // Use prop if available
 
         if (!ngoProfile) {
           if (data.type === "ngo") {
@@ -87,7 +90,7 @@ export function CryptoDonationTable({ ngoProfile: propNgoProfile, userId: propUs
               const ngoDoc = await getDoc(doc(db, "ngo", ngoIdToUse));
               if (ngoDoc.exists()) {
                 ngoProfile = ngoDoc.data();
-                setUserData({...data, ...ngoProfile});
+                setUserData({ ...data, ...ngoProfile });
               } else {
                 setUserData(data);
               }
@@ -100,9 +103,9 @@ export function CryptoDonationTable({ ngoProfile: propNgoProfile, userId: propUs
             ngoIdToUse = currentUser.uid;
           }
         } else {
-          setUserData({...data, ...ngoProfile});
+          setUserData({ ...data, ...ngoProfile });
         }
-        
+
         setNgoId(ngoIdToUse || currentUser.uid);
 
         // Now that we have user data, set up the donation listeners
@@ -124,33 +127,48 @@ export function CryptoDonationTable({ ngoProfile: propNgoProfile, userId: propUs
     }
 
     const currentYear = new Date().getFullYear().toString();
-    
+
     // Fetch crypto donations using collectionGroup
     const unsubscribe = onSnapshot(
       collectionGroup(db, "crypto"),
       (snapshot) => {
         const donations = [];
-        
+
         snapshot.forEach((doc) => {
           // Only include donations that belong to this NGO and year
           const path = doc.ref.path;
           if (path.includes(`donations/${ngoId}/${currentYear}`)) {
             const data = doc.data();
-            console.log("Crypto donation data:", data);  // Debug log
-            console.log("Crypto amount:", data.cryptoAmount, "Type:", data.cryptoType);  // Debug log
-            
+            console.log("Crypto donation data:", data); // Debug log
+            console.log(
+              "Crypto amount:",
+              data.cryptoAmount,
+              "Type:",
+              data.cryptoType
+            ); // Debug log
+
             donations.push({
               id: doc.id,
-              donor: data.name || data.donorName || data.senderAddress?.substring(0, 8) + "..." || "Anonymous",
+              donor:
+                data.name ||
+                data.donorName ||
+                data.senderAddress?.substring(0, 8) + "..." ||
+                "Anonymous",
               email: data.email || data.donorEmail || "N/A",
               amount: data.amount || "N/A",
               txHash: data.txHash || "N/A",
-              date: data.timestamp ? new Date(data.timestamp).toLocaleString() : 
-                    (data.donatedOn ? new Date(data.donatedOn).toLocaleString() : "N/A"),
+              date: data.timestamp
+                ? new Date(data.timestamp).toLocaleString()
+                : data.donatedOn
+                  ? new Date(data.donatedOn).toLocaleString()
+                  : "N/A",
               status: data.status || "Completed",
               senderAddress: data.senderAddress || "N/A",
-              timestamp: data.timestamp ? new Date(data.timestamp).getTime() : 
-                        (data.donatedOn ? new Date(data.donatedOn).getTime() : 0),
+              timestamp: data.timestamp
+                ? new Date(data.timestamp).getTime()
+                : data.donatedOn
+                  ? new Date(data.donatedOn).getTime()
+                  : 0,
               rawData: data,
               type: "Crypto",
               phone: data.phone || data.donorPhone || "N/A",
@@ -159,7 +177,9 @@ export function CryptoDonationTable({ ngoProfile: propNgoProfile, userId: propUs
         });
 
         // Sort donations by timestamp (newest first)
-        const sortedDonations = donations.sort((a, b) => b.timestamp - a.timestamp);
+        const sortedDonations = donations.sort(
+          (a, b) => b.timestamp - a.timestamp
+        );
         setCryptoDonations(sortedDonations);
         setLoading(false);
       },
@@ -175,9 +195,9 @@ export function CryptoDonationTable({ ngoProfile: propNgoProfile, userId: propUs
   // Calculate donation counts by status
   const donationCounts = {
     total: cryptoDonations.length,
-    completed: cryptoDonations.filter(d => d.status === "Completed").length,
-    pending: cryptoDonations.filter(d => d.status === "Pending").length,
-    rejected: cryptoDonations.filter(d => d.status === "Rejected").length,
+    completed: cryptoDonations.filter((d) => d.status === "Completed").length,
+    pending: cryptoDonations.filter((d) => d.status === "Pending").length,
+    rejected: cryptoDonations.filter((d) => d.status === "Rejected").length,
   };
 
   // Filter donations based on search term
@@ -186,9 +206,14 @@ export function CryptoDonationTable({ ngoProfile: propNgoProfile, userId: propUs
       (statusFilter === "All" || donation.status === statusFilter) &&
       (donation.donor?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         donation.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        donation.amount?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+        donation.amount
+          ?.toString()
+          .toLowerCase()
+          .includes(searchTerm.toLowerCase()) ||
         donation.txHash?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        donation.senderAddress?.toLowerCase().includes(searchTerm.toLowerCase()))
+        donation.senderAddress
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase()))
   );
 
   const openViewModal = (transaction) => {
@@ -208,17 +233,13 @@ export function CryptoDonationTable({ ngoProfile: propNgoProfile, userId: propUs
         <div>
           <CardTitle>Cryptocurrency Donations</CardTitle>
           <CardDescription>
-            View all cryptocurrency donation records here, sorted by most recent first, updates in real-time.
+            View all cryptocurrency donation records here, sorted by most recent
+            first, updates in real-time.
           </CardDescription>
         </div>
         <div className="mt-4 md:mt-0 flex items-center gap-2">
-          <CryptoDonation />
-          {(ngoId || propUserId) && (
-            <CryptoPayoutButton 
-              ngoProfile={propNgoProfile || userData} 
-              userId={propUserId || auth.currentUser?.uid} 
-            />
-          )}
+          {/* <CryptoDonation /> */}
+          <CryptoPayoutButton />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -393,27 +414,37 @@ export function CryptoDonationTable({ ngoProfile: propNgoProfile, userId: propUs
                   <p className="mt-1">{selectedTransaction.amount || "N/A"}</p>
                 </div>
               </div>
-              
-              {selectedTransaction.txHash && selectedTransaction.txHash !== "N/A" && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Transaction Hash</p>
-                  <p className="mt-1 break-all text-xs">{selectedTransaction.txHash}</p>
-                </div>
-              )}
-              
+
+              {selectedTransaction.txHash &&
+                selectedTransaction.txHash !== "N/A" && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">
+                      Transaction Hash
+                    </p>
+                    <p className="mt-1 break-all text-xs">
+                      {selectedTransaction.txHash}
+                    </p>
+                  </div>
+                )}
+
               {selectedTransaction.senderAddress && (
                 <div>
-                  <p className="text-sm font-medium text-gray-500">Sender Address</p>
-                  <p className="mt-1 break-all text-xs">{selectedTransaction.senderAddress}</p>
+                  <p className="text-sm font-medium text-gray-500">
+                    Sender Address
+                  </p>
+                  <p className="mt-1 break-all text-xs">
+                    {selectedTransaction.senderAddress}
+                  </p>
                 </div>
               )}
-              
-              {selectedTransaction.phone && selectedTransaction.phone !== "N/A" && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Phone</p>
-                  <p className="mt-1">{selectedTransaction.phone}</p>
-                </div>
-              )}
+
+              {selectedTransaction.phone &&
+                selectedTransaction.phone !== "N/A" && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Phone</p>
+                    <p className="mt-1">{selectedTransaction.phone}</p>
+                  </div>
+                )}
             </div>
           )}
           <DialogFooter className="mt-6">
@@ -423,4 +454,4 @@ export function CryptoDonationTable({ ngoProfile: propNgoProfile, userId: propUs
       </Dialog>
     </Card>
   );
-} 
+}

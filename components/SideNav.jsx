@@ -16,19 +16,44 @@ import {
   Menu,
   Globe,
   FileText,
+  Wallet,
+  ArrowUpRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { signOut } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
+import { auth, db, storage } from "@/lib/firebase";
 import { useRouter, usePathname } from "next/navigation";
 import Joyride from "react-joyride";
 import { TranslationModal } from "@/components/TranslationModal";
 import { useLanguage } from "@/context/LanguageContext";
 import NotificationsPopup from "@/components/NotificationsPopup";
-import { doc, onSnapshot } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  getDoc,
+  addDoc,
+  collection,
+  serverTimestamp,
+} from "firebase/firestore";
+import { useReadContract } from "wagmi";
+import { formatEther } from "viem";
+import { NGOABI, SuperAdminABI } from "@/constants/contract";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import toast from "react-hot-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { CryptoPayoutButton } from "@/components/CryptoPayoutButton";
 
 export function SideNav({
   isOpen,
@@ -37,15 +62,96 @@ export function SideNav({
   type,
   notifications = [],
   notificationsLoading = true,
+  onMarkAsRead,
 }) {
   const [isMobile, setIsMobile] = useState(false);
   const [runSidebarTour, setRunSidebarTour] = useState(false);
   const [showTranslationModal, setShowTranslationModal] = useState(false);
   const [localNotifications, setLocalNotifications] = useState([]);
+  const [ngoProfile, setNgoProfile] = useState(null);
+  const [cryptoEnabled, setCryptoEnabled] = useState(false);
+  const [walletAddress, setWalletAddress] = useState(null);
+  const [showPayoutButton, setShowPayoutButton] = useState(false);
+
   const pathname = usePathname();
   const navRefs = useRef({});
   const router = useRouter();
   const { language, translations } = useLanguage();
+
+  // Step 1: First fetch the NGO profile and wallet address
+  useEffect(() => {
+    if (type === "ngo" && auth.currentUser) {
+      const unsubscribe = onSnapshot(
+        doc(db, "ngo", auth.currentUser.uid),
+        (doc) => {
+          if (doc.exists()) {
+            const profile = doc.data();
+            setNgoProfile(profile);
+
+            // Get crypto payment status - check both potential field names
+            const isCryptoEnabled =
+              profile.donationsData?.isCryptoTransferEnabled ||
+              profile.donationsData?.cryptoPaymentEnabled ||
+              false;
+            setCryptoEnabled(isCryptoEnabled);
+
+            // Get wallet address
+            const walletAddr =
+              profile.donationsData?.cryptoWalletAddress || null;
+            setWalletAddress(walletAddr);
+
+            // Set whether to show payout button
+            setShowPayoutButton(isCryptoEnabled && walletAddr);
+
+            console.log("NGO Profile Loaded:", {
+              uid: auth.currentUser.uid,
+              isCryptoEnabled,
+              walletAddress: walletAddr,
+              donationsData: profile.donationsData,
+            });
+          }
+        }
+      );
+      return () => unsubscribe();
+    }
+  }, [type]);
+
+  // Step 2: Then fetch the contract address using the wallet address
+  const {
+    data: ngoContractAddress,
+    error: ngoContractError,
+    isPending: ngoContractPending,
+  } = useReadContract({
+    address: "0xd4fb2E1C31b146b2EA7521d594Eb7e6eCDF02F93",
+    abi: SuperAdminABI,
+    functionName: "ngoContracts",
+    args: [walletAddress],
+    enabled: Boolean(walletAddress && type === "ngo"),
+    onSuccess: (data) => {
+      console.log("NGO Contract Address fetched:", data);
+    },
+    onError: (error) => {
+      console.error("Error fetching NGO contract address:", error);
+    },
+  });
+
+  // Step 3: Finally fetch the balance using the contract address
+  const {
+    data: ngoBalance,
+    error: ngoBalanceError,
+    isPending: ngoBalancePending,
+  } = useReadContract({
+    address: ngoContractAddress,
+    abi: NGOABI,
+    functionName: "getAvailableBalance",
+    enabled: Boolean(ngoContractAddress),
+    onSuccess: (data) => {
+      console.log("NGO Balance fetched:", formatEther(data), "SMC");
+    },
+    onError: (error) => {
+      console.error("Error fetching NGO balance:", error);
+    },
+  });
 
   // Use provided notifications if available, otherwise use the locally fetched ones
   const displayNotifications =
@@ -427,8 +533,11 @@ export function SideNav({
     if (markAllRead) {
       // If notifications are provided via props, we need to call parent update
       // Otherwise we just update local state
-      if (notifications.length > 0 && onMarkAsRead) {
-        onMarkAsRead(null, true);
+      if (notifications.length > 0) {
+        // Check if onMarkAsRead exists before calling it
+        if (typeof onMarkAsRead === "function") {
+          onMarkAsRead(null, true);
+        }
       } else {
         setLocalNotifications((prev) =>
           prev.map((notification) => ({ ...notification, read: true }))
@@ -437,8 +546,11 @@ export function SideNav({
     } else if (index !== null && index >= 0) {
       // If notifications are provided via props, we need to call parent update
       // Otherwise we just update local state
-      if (notifications.length > 0 && onMarkAsRead) {
-        onMarkAsRead(index);
+      if (notifications.length > 0) {
+        // Check if onMarkAsRead exists before calling it
+        if (typeof onMarkAsRead === "function") {
+          onMarkAsRead(index);
+        }
       } else if (index < localNotifications.length) {
         setLocalNotifications((prev) => {
           const updated = [...prev];
@@ -561,6 +673,44 @@ export function SideNav({
           <div className="mt-auto bottom-nav-section">
             {isOpen && <div className="my-4 border-t border-gray-200" />}
             <div className="py-2">
+              {/* Crypto Balance Display - Only check if user is NGO and crypto is enabled */}
+              {type === "ngo" && cryptoEnabled && (
+                <div
+                  className={cn(
+                    "flex items-center rounded-lg p-2 text-gray-700 mb-2",
+                    !isOpen && "justify-center",
+                    "bg-[#1CAC78] bg-opacity-10"
+                  )}
+                >
+                  <Wallet className="h-6 w-6 text-[#1CAC78]" />
+                  {isOpen && (
+                    <div className="ml-3 flex-1">
+                      <div className="text-xs text-gray-600">
+                        Available Balance
+                      </div>
+                      <div className="font-medium flex items-center justify-between">
+                        <span>
+                          {ngoBalance ? formatEther(ngoBalance) : "0"} SMC
+                        </span>
+                        {showPayoutButton && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 ml-2"
+                            onClick={() =>
+                              router.push("/dashboard/ngo/finances/crypto")
+                            }
+                            title="Request Payout"
+                          >
+                            <ArrowUpRight className="h-4 w-4 text-[#1CAC78]" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Notifications Popup */}
               {auth.currentUser && isNotificationsReady && (
                 <NotificationsPopup
