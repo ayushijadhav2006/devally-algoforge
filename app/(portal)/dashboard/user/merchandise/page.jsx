@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { ShoppingCart, Package, X, ShoppingBag, Plus, Minus, Search } from 'lucide-react';
 import { useGamification } from '@/context/GamificationContext';
+import { useLanguage } from '@/context/LanguageContext'; // Import LanguageContext
 
 export default function MerchandiseShop() {
   const [merchandise, setMerchandise] = useState([]);
@@ -34,6 +35,7 @@ export default function MerchandiseShop() {
   const [toastMessage, setToastMessage] = useState(null);
   const [userId, setUserId] = useState(null);
   const { recordPurchase } = useGamification();
+  const { language, translations } = useLanguage();
 
   useEffect(() => {
     if (toastMessage) {
@@ -195,16 +197,16 @@ export default function MerchandiseShop() {
           
           // Queue toast notification
           setToastMessage({
-            title: "Added to cart",
-            description: `${item.name} quantity updated`,
+            title: translations.added_to_cart || "Added to cart",
+            description: `${item.name} ${translations.quantity_updated || "quantity updated"}`,
           });
           
           return updatedItems;
         } else {
           // Queue toast notification for max stock
           setToastMessage({
-            title: "Maximum stock reached",
-            description: `Only ${item.quantity} items available`,
+            title: translations.maximum_stock_reached || "Maximum stock reached",
+            description: `${translations.only || "Only"} ${item.quantity} ${translations.items_available || "items available"}`,
             variant: "destructive"
           });
           return prev;
@@ -213,14 +215,14 @@ export default function MerchandiseShop() {
         // Item doesn't exist, add it
         // Queue toast notification
         setToastMessage({
-          title: "Added to cart",
-          description: `${item.name} added to your cart`,
+          title: translations.added_to_cart || "Added to cart",
+          description: `${item.name} ${translations.added_to_your_cart || "added to your cart"}`,
         });
         
         return [...prev, { ...item, quantity: 1 }];
       }
     });
-  }, []);
+  }, [translations]);
 
   const removeFromCart = useCallback((itemId, ngoId, ngoCollection) => {
     setCartItems(prev => prev.filter(item => 
@@ -228,10 +230,10 @@ export default function MerchandiseShop() {
     ));
     
     setToastMessage({
-      title: "Removed from cart",
-      description: "Item removed from your cart",
+      title: translations.removed_from_cart || "Removed from cart",
+      description: translations.item_removed_from_cart || "Item removed from your cart",
     });
-  }, []);
+  }, [translations]);
 
   const updateCartItemQuantity = useCallback((itemId, ngoId, ngoCollection, newQuantity) => {
     if (newQuantity < 1) return;
@@ -245,8 +247,8 @@ export default function MerchandiseShop() {
     
     if (newQuantity > originalItem.quantity) {
       setToastMessage({
-        title: "Maximum stock reached",
-        description: `Only ${originalItem.quantity} items available`,
+        title: translations.maximum_stock_reached || "Maximum stock reached",
+        description: `${translations.only || "Only"} ${originalItem.quantity} ${translations.items_available || "items available"}`,
         variant: "destructive"
       });
       return;
@@ -259,7 +261,7 @@ export default function MerchandiseShop() {
           : item
       )
     );
-  }, [merchandise]);
+  }, [merchandise, translations]);
 
   const calculateTotal = () => {
     return cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -273,8 +275,8 @@ export default function MerchandiseShop() {
       
       if (missingFields.length > 0) {
         setToastMessage({
-          title: "Please fill all required fields",
-          description: `Missing: ${missingFields.join(', ')}`,
+          title: translations.fill_required_fields || "Please fill all required fields",
+          description: `${translations.missing || "Missing"}: ${missingFields.join(', ')}`,
           variant: "destructive"
         });
         return;
@@ -283,8 +285,8 @@ export default function MerchandiseShop() {
       // Ensure user is logged in
       if (!userId) {
         setToastMessage({
-          title: "Login Required",
-          description: "Please log in to complete your purchase",
+          title: translations.login_required || "Login Required",
+          description: translations.login_to_complete || "Please log in to complete your purchase",
           variant: "destructive"
         });
         return;
@@ -449,21 +451,21 @@ export default function MerchandiseShop() {
         if (gamificationResult?.pointsAwarded) {
           // Add a message about points earned
           setToastMessage({
-            title: "Order placed successfully!",
-            description: `Order #${orderId.slice(0, 8)} has been placed. You earned ${gamificationResult.pointsAwarded} points!`,
+            title: translations.order_placed_successfully || "Order placed successfully!",
+            description: `${translations.order || "Order"} #${orderId.slice(0, 8)} ${translations.has_been_placed || "has been placed"}. ${translations.you_earned || "You earned"} ${gamificationResult.pointsAwarded} ${translations.points || "points"}!`,
           });
         } else {
           setToastMessage({
-            title: "Order placed successfully!",
-            description: `Order #${orderId.slice(0, 8)} has been placed`,
+            title: translations.order_placed_successfully || "Order placed successfully!",
+            description: `${translations.order || "Order"} #${orderId.slice(0, 8)} ${translations.has_been_placed || "has been placed"}`,
           });
         }
       } catch (gamificationError) {
         console.error("Error recording gamification:", gamificationError);
         // Still show success message even if gamification fails
         setToastMessage({
-          title: "Order placed successfully!",
-          description: `Order #${orderId.slice(0, 8)} has been placed`,
+          title: translations.order_placed_successfully || "Order placed successfully!",
+          description: `${translations.order || "Order"} #${orderId.slice(0, 8)} ${translations.has_been_placed || "has been placed"}`,
         });
       }
       
@@ -475,8 +477,8 @@ export default function MerchandiseShop() {
     } catch (error) {
       console.error("Error processing order:", error);
       setToastMessage({
-        title: "Checkout failed",
-        description: "There was an error processing your order",
+        title: translations.checkout_failed || "Checkout failed",
+        description: translations.error_processing_order || "There was an error processing your order",
         variant: "destructive"
       });
     }
@@ -485,7 +487,7 @@ export default function MerchandiseShop() {
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="flex flex-col md:flex-row justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold mb-4 md:mb-0">NGO Merchandise Shop</h1>
+        <h1 className="text-3xl font-bold mb-4 md:mb-0">{translations.ngo_merchandise_shop || "NGO Merchandise Shop"}</h1>
         
         <div className="flex w-full md:w-auto space-x-2">
           <div className="relative w-full md:w-64">
@@ -494,7 +496,7 @@ export default function MerchandiseShop() {
             </div>
             <Input
               type="text"
-              placeholder="Search merchandise..."
+              placeholder={translations.search_merchandise || "Search merchandise..."}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10"
@@ -517,23 +519,23 @@ export default function MerchandiseShop() {
 
       <Tabs defaultValue="all" className="space-y-4">
         <TabsList className="flex flex-wrap">
-          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="all">{translations.all || "All"}</TabsTrigger>
           {availableCategories.map(category => (
             <TabsTrigger key={category} value={category}>{category}</TabsTrigger>
           ))}
         </TabsList>
 
         <TabsContent value="all" className="space-y-4">
-          <h2 className="text-2xl font-semibold">All Merchandise</h2>
+          <h2 className="text-2xl font-semibold">{translations.all_merchandise || "All Merchandise"}</h2>
           
           {isLoading ? (
             <div className="py-12 text-center">
-              <p>Loading merchandise...</p>
+              <p>{translations.loading_merchandise || "Loading merchandise..."}</p>
             </div>
           ) : getFilteredMerchandise().length === 0 ? (
             <div className="py-12 text-center">
               <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-              <p className="text-muted-foreground">No merchandise found</p>
+              <p className="text-muted-foreground">{translations.no_merchandise_found || "No merchandise found"}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -542,6 +544,7 @@ export default function MerchandiseShop() {
                   key={`${item.ngoCollection}-${item.ngoId}-${item.id}`}
                   item={item}
                   onAddToCart={() => addToCart(item)}
+                  translations={translations}
                 />
               ))}
             </div>
@@ -554,12 +557,12 @@ export default function MerchandiseShop() {
             
             {isLoading ? (
               <div className="py-12 text-center">
-                <p>Loading merchandise...</p>
+                <p>{translations.loading_merchandise || "Loading merchandise..."}</p>
               </div>
             ) : getFilteredMerchandise(category).length === 0 ? (
               <div className="py-12 text-center">
                 <Package className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No merchandise found in this category</p>
+                <p className="text-muted-foreground">{translations.no_merchandise_in_category || "No merchandise found in this category"}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -568,6 +571,7 @@ export default function MerchandiseShop() {
                     key={`${item.ngoCollection}-${item.ngoId}-${item.id}`}
                     item={item}
                     onAddToCart={() => addToCart(item)}
+                    translations={translations}
                   />
                 ))}
               </div>
@@ -582,20 +586,20 @@ export default function MerchandiseShop() {
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <ShoppingCart className="h-5 w-5 mr-2" />
-              Your Shopping Cart
+              {translations.your_shopping_cart || "Your Shopping Cart"}
             </DialogTitle>
           </DialogHeader>
           
           {cartItems.length === 0 ? (
             <div className="py-6 text-center">
               <ShoppingBag className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">Your cart is empty</p>
+              <p className="text-muted-foreground">{translations.cart_empty || "Your cart is empty"}</p>
               <Button 
                 className="mt-4" 
                 variant="outline" 
                 onClick={() => setIsCartOpen(false)}
               >
-                Continue Shopping
+                {translations.continue_shopping || "Continue Shopping"}
               </Button>
             </div>
           ) : (
@@ -619,7 +623,7 @@ export default function MerchandiseShop() {
                       </div>
                       <div>
                         <h4 className="font-medium truncate max-w-[150px]">{item.name}</h4>
-                        <p className="text-sm text-muted-foreground">₹{item.price} each</p>
+                        <p className="text-sm text-muted-foreground">₹{item.price} {translations.each || "each"}</p>
                         <p className="text-xs text-muted-foreground">{item.ngoName}</p>
                       </div>
                     </div>
@@ -662,7 +666,7 @@ export default function MerchandiseShop() {
               
               <div className="border-t pt-4">
                 <div className="flex justify-between font-semibold text-lg mb-4">
-                  <span>Total:</span>
+                  <span>{translations.total || "Total"}:</span>
                   <span>₹{calculateTotal().toFixed(2)}</span>
                 </div>
                 
@@ -672,7 +676,7 @@ export default function MerchandiseShop() {
                     className="flex-1"
                     onClick={() => setIsCartOpen(false)}
                   >
-                    Continue Shopping
+                    {translations.continue_shopping || "Continue Shopping"}
                   </Button>
                   
                   <Button 
@@ -682,7 +686,7 @@ export default function MerchandiseShop() {
                       setIsCheckoutOpen(true);
                     }}
                   >
-                    Checkout
+                    {translations.checkout || "Checkout"}
                   </Button>
                 </div>
               </div>
@@ -695,92 +699,92 @@ export default function MerchandiseShop() {
       <Dialog open={isCheckoutOpen} onOpenChange={setIsCheckoutOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
-            <DialogTitle>Checkout</DialogTitle>
+            <DialogTitle>{translations.checkout || "Checkout"}</DialogTitle>
             <DialogDescription>
-              Complete your order by providing shipping information.
+              {translations.complete_order_info || "Complete your order by providing shipping information."}
             </DialogDescription>
           </DialogHeader>
           
           <div className="grid gap-6 py-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="name">Full Name</Label>
+                <Label htmlFor="name">{translations.full_name || "Full Name"}</Label>
                 <Input
                   id="name"
                   value={customerInfo.name}
                   onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})}
-                  placeholder="Enter your full name"
+                  placeholder={translations.enter_full_name || "Enter your full name"}
                 />
               </div>
               
               <div>
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{translations.email || "Email"}</Label>
                 <Input
                   id="email"
                   type="email"
                   value={customerInfo.email}
                   onChange={(e) => setCustomerInfo({...customerInfo, email: e.target.value})}
-                  placeholder="your@email.com"
+                  placeholder={translations.your_email || "your@email.com"}
                 />
               </div>
               
               <div>
-                <Label htmlFor="phone">Phone</Label>
+                <Label htmlFor="phone">{translations.phone || "Phone"}</Label>
                 <Input
                   id="phone"
                   value={customerInfo.phone}
                   onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})}
-                  placeholder="Your phone number"
+                  placeholder={translations.your_phone_number || "Your phone number"}
                 />
               </div>
               
               <div className="md:col-span-2">
-                <Label htmlFor="address">Address</Label>
+                <Label htmlFor="address">{translations.address || "Address"}</Label>
                 <Input
                   id="address"
                   value={customerInfo.address}
                   onChange={(e) => setCustomerInfo({...customerInfo, address: e.target.value})}
-                  placeholder="Your shipping address"
+                  placeholder={translations.your_shipping_address || "Your shipping address"}
                 />
               </div>
               
               <div>
-                <Label htmlFor="city">City</Label>
+                <Label htmlFor="city">{translations.city || "City"}</Label>
                 <Input
                   id="city"
                   value={customerInfo.city}
                   onChange={(e) => setCustomerInfo({...customerInfo, city: e.target.value})}
-                  placeholder="Your city"
+                  placeholder={translations.your_city || "Your city"}
                 />
               </div>
               
               <div>
-                <Label htmlFor="pincode">PIN Code</Label>
+                <Label htmlFor="pincode">{translations.pincode || "PIN Code"}</Label>
                 <Input
                   id="pincode"
                   value={customerInfo.pincode}
                   onChange={(e) => setCustomerInfo({...customerInfo, pincode: e.target.value})}
-                  placeholder="PIN code"
+                  placeholder={translations.pin_code || "PIN code"}
                 />
               </div>
             </div>
             
             {/* Order Summary */}
             <div>
-              <h3 className="font-semibold mb-2">Order Summary</h3>
+              <h3 className="font-semibold mb-2">{translations.order_summary || "Order Summary"}</h3>
               <div className="max-h-[200px] overflow-auto border rounded-md p-2">
                 {cartItems.map((item) => (
                   <div key={`${item.ngoCollection}-${item.ngoId}-${item.id}`} className="flex justify-between py-1 border-b last:border-b-0">
                     <div>
                       <span>{item.name} × {item.quantity}</span>
-                      <div className="text-xs text-muted-foreground">From: {item.ngoName}</div>
+                      <div className="text-xs text-muted-foreground">{translations.from || "From"}: {item.ngoName}</div>
                     </div>
                     <span>₹{(item.price * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
               <div className="flex justify-between font-semibold mt-2">
-                <span>Total:</span>
+                <span>{translations.total || "Total"}:</span>
                 <span>₹{calculateTotal().toFixed(2)}</span>
               </div>
             </div>
@@ -794,13 +798,13 @@ export default function MerchandiseShop() {
                 setIsCartOpen(true);
               }}
             >
-              Back to Cart
+              {translations.back_to_cart || "Back to Cart"}
             </Button>
             <Button 
               className="bg-[#1CAC78] hover:bg-[#158f63]"
               onClick={handleCheckout}
             >
-              Place Order
+              {translations.place_order || "Place Order"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -811,6 +815,7 @@ export default function MerchandiseShop() {
 
 function ProductCard({ item, onAddToCart }) {
   const isDiscounted = item.discountPrice && item.discountPrice < item.price;
+  const { translations } = useLanguage();
   
   return (
     <Card className="overflow-hidden transition-all duration-300 hover:shadow-md">
@@ -841,7 +846,7 @@ function ProductCard({ item, onAddToCart }) {
           </Badge>
           {item.quantity <= 5 && (
             <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800">
-              Low Stock
+                {translations.low_stock || "Low Stock"}
             </Badge>
           )}
         </div>
@@ -871,7 +876,7 @@ function ProductCard({ item, onAddToCart }) {
           className="w-full bg-[#1CAC78] hover:bg-[#158f63]"
           onClick={onAddToCart}
         >
-          Add to Cart
+          {translations.add_to_cart || "Add to Cart"}
         </Button>
       </CardFooter>
     </Card>

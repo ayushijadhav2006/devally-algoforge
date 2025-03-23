@@ -1,0 +1,5 @@
+{
+  "buildCommand": "npm install --platform=linux --arch=x64 sharp && next build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "framework": "nextjs"
+} 

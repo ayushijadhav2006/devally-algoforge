@@ -32,6 +32,7 @@ import { useLanguage } from "@/context/LanguageContext";
 import { TranslationModal } from "@/components/TranslationModal";
 import { useGamification } from "@/context/GamificationContext";
 import { Progress } from "@/components/ui/progress";
+import NGORecommendation from "@/components/NGORecommendation"; // Import the new component
 
 export default function UserDashboardPage() {
   const user = auth.currentUser;
@@ -350,6 +351,9 @@ export default function UserDashboardPage() {
           </Card>
         </div>
       </div>
+
+      {/* NGO Recommendation Section - New Addition */}
+      <NGORecommendation userData={userData} />
 
       {/* Translation Modal */}
       <TranslationModal 
