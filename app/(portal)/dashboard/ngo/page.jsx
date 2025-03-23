@@ -1,9 +1,9 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import Joyride from "react-joyride";
+import Joyride, { ACTIONS, EVENTS, STATUS } from "react-joyride";
 import { MetricsOverview } from "@/components/ngo-dashboard/metrics-overview";
 import { QuickActions } from "@/components/ngo-dashboard/quick-actions";
 import { RecentActivities } from "@/components/ngo-dashboard/recent-activities";
@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [showRestartButton, setShowRestartButton] = useState(false);
   const [showTranslationModal, setShowTranslationModal] = useState(false);
   const { language, translations } = useLanguage(); // Use language context
+  const joyrideRef = useRef(null);
 
   useEffect(() => {
     const fetchNgoName = async () => {
@@ -75,31 +76,29 @@ export default function DashboardPage() {
     fetchNgoName();
   }, []);
 
-  // Handle tour callbacks
-  const handleTourCallback = (data) => {
-    const { status } = data;
-    // When the dashboard tour ends (either completed or skipped), show restart button and trigger sidebar tour
-    if (status === "finished" || status === "skipped") {
-      setShowRestartButton(true);
+  const handleJoyrideCallback = (data) => {
+    const { action, index, status, type } = data;
 
-      // Dispatch a custom event that the SideNav component will listen for
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+      setShowRestartButton(true);
+      setRunTour(false);
+
+      // Dispatch custom event for sidebar tour
       const event = new CustomEvent("startSidebarTour", {
         detail: { startTour: true },
       });
       window.dispatchEvent(event);
     }
+
+    if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type)) {
+      setRunTour(true); // Keep the tour running
+    }
   };
 
-  // Start both tours from beginning
   const handleRestartTour = () => {
-    // Reset both tours in localStorage
     localStorage.removeItem("hasSeenDashboardTour");
     localStorage.removeItem("hasCompletedFullTour");
-
-    // Start the dashboard tour
     setRunTour(true);
-
-    // Hide restart button during tour
     setShowRestartButton(false);
   };
 
@@ -240,6 +239,7 @@ export default function DashboardPage() {
 
       {/* React Joyride Tour */}
       <Joyride
+        ref={joyrideRef}
         steps={tourSteps}
         run={runTour}
         continuous
@@ -248,7 +248,7 @@ export default function DashboardPage() {
         scrollToFirstStep
         disableOverlayClose
         spotlightClicks
-        callback={handleTourCallback}
+        callback={handleJoyrideCallback}
         styles={{
           options: {
             zIndex: 10000,

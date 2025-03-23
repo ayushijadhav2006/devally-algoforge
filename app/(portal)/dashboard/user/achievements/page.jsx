@@ -334,6 +334,6 @@ export default function UserAchievementsPage() {
         isOpen={showTranslationModal} 
         onClose={() => setShowTranslationModal(false)} 
       />
-    </div>
+    </div>  
   );
 }
