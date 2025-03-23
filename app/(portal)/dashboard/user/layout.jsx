@@ -134,13 +134,35 @@ const Layout = ({ children }) => {
   }
 
   return (
-    <NotificationProvider>
+    <>
+      <NotificationProvider>
+        <div className="flex min-h-screen bg-gray-100">
+          <SideNav
+            isOpen={isSideNavOpen}
+            setIsOpen={setIsSideNavOpen}
+            navConfig={NavConfig}
+            type="volunteer"
+          />
+          <main
+            className="flex-1 overflow-y-auto"
+            style={{
+              paddingLeft: isSideNavOpen ? "256px" : "64px",
+              transition: "padding-left 0.3s",
+            }}
+          >
+            <div className="p-4 md:p-8">{children}</div>
+            <Chatbot />
+          </main>
+        </div>
+      </NotificationProvider>
       <div className="flex min-h-screen bg-gray-100">
         <SideNav
           isOpen={isSideNavOpen}
           setIsOpen={setIsSideNavOpen}
           navConfig={NavConfig}
           type="volunteer"
+          notifications={notifications}
+          notificationsLoading={notificationsLoading}
         />
         <main
           className="flex-1 overflow-y-auto"
@@ -153,27 +175,7 @@ const Layout = ({ children }) => {
           <Chatbot />
         </main>
       </div>
-    </NotificationProvider>
-    <div className="flex min-h-screen bg-gray-100">
-      <SideNav
-        isOpen={isSideNavOpen}
-        setIsOpen={setIsSideNavOpen}
-        navConfig={NavConfig}
-        type="volunteer"
-        notifications={notifications}
-        notificationsLoading={notificationsLoading}
-      />
-      <main
-        className="flex-1 overflow-y-auto"
-        style={{
-          paddingLeft: isSideNavOpen ? "256px" : "64px",
-          transition: "padding-left 0.3s",
-        }}
-      >
-        <div className="p-4 md:p-8">{children}</div>
-        <Chatbot />
-      </main>
-    </div>
+    </>
   );
 };
 

@@ -23,6 +23,7 @@ import Image from "next/image";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Input } from "@/components/ui/input";
+import NGOPlaceholder from "@/components/ui/ngo-placeholder";
 
 // Dynamically import Leaflet Map component
 const Map = dynamic(() => import("@/components/map/Map"), { ssr: false });
@@ -38,6 +39,7 @@ const NGOListPage = () => {
   const [isLoadingAll, setIsLoadingAll] = useState(true);
   const [locationError, setLocationError] = useState(null);
   const [sortByRating, setSortByRating] = useState(false);
+  const [imageErrors, setImageErrors] = useState({});
 
   // Function to sort NGOs by rating
   const sortNGOs = (ngos) => {
@@ -75,6 +77,7 @@ const NGOListPage = () => {
         ngosData.push(ngoData);
       });
       setAllNGOs(ngosData);
+      console.log("All NGOs:", ngosData);
       setIsLoadingAll(false);
     } catch (error) {
       console.error("Error fetching NGOs:", error);
@@ -85,6 +88,11 @@ const NGOListPage = () => {
   // Function to fetch nearby NGOs from API
   const fetchNearbyNGOs = async (latitude, longitude) => {
     try {
+      console.log(
+        "Making API request to:",
+        "https://geolocation-smile-share.onrender.com/nearby-ngos/"
+      );
+
       const response = await fetch(
         "https://geolocation-smile-share.onrender.com/nearby-ngos/",
         {
@@ -100,17 +108,33 @@ const NGOListPage = () => {
         }
       );
 
+      console.log("API Response status:", response.status);
+
       if (!response.ok) {
-        throw new Error("Failed to fetch nearby NGOs");
+        console.log("API Response:", response);
+        const errorText = await response.text();
+        console.error("API Error Response:", errorText);
+        throw new Error(
+          `Failed to fetch nearby NGOs: ${response.status} ${errorText}`
+        );
       }
 
       const data = await response.json();
+      console.log("API Response data:", data);
+
+      if (!Array.isArray(data)) {
+        console.error("Invalid API response format - expected array:", data);
+        return [];
+      }
+
       // Sort NGOs by distance
+      console.log("Sorting NGOs by distance:", data);
       const sortedNGOs = data.sort((a, b) => a.distance - b.distance);
       setNearbyNGOs(sortedNGOs);
       return sortedNGOs;
     } catch (error) {
       console.error("Error fetching nearby NGOs:", error);
+      setLocationError(`Failed to fetch nearby NGOs: ${error.message}`);
       return [];
     }
   };
@@ -129,12 +153,24 @@ const NGOListPage = () => {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         };
+        console.log("Got user location:", newLocation);
         setUserLocation(newLocation);
         setIsLoadingLocation(false);
         setLocationError(null);
 
         // Fetch nearby NGOs when location is obtained
-        await fetchNearbyNGOs(newLocation.latitude, newLocation.longitude);
+        console.log("Fetching nearby NGOs with location:", newLocation);
+        const nearbyNGOs = await fetchNearbyNGOs(
+          newLocation.latitude,
+          newLocation.longitude
+        );
+        console.log("Received nearby NGOs:", nearbyNGOs);
+
+        if (nearbyNGOs.length === 0) {
+          console.log(
+            "No nearby NGOs found - check if your FastAPI server is running at https://geolocation-smile-share.onrender.com"
+          );
+        }
       },
       (error) => {
         console.log("Geolocation error:", error);
@@ -177,12 +213,23 @@ const NGOListPage = () => {
     >
       <div className="flex flex-col md:flex-row">
         <div className="relative h-48 md:w-48 md:h-auto">
-          <Image
-            src={ngo.logoUrl || "/placeholder.svg"}
-            alt={ngo.ngoName}
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-          />
+          {!ngo.logoUrl || imageErrors[ngo.id] ? (
+            <NGOPlaceholder />
+          ) : (
+            <Image
+              src={ngo.logoUrl}
+              alt={ngo.ngoName}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={() => {
+                setImageErrors((prev) => ({
+                  ...prev,
+                  [ngo.id]: true,
+                }));
+              }}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            />
+          )}
           {ngo.distance && (
             <div className="absolute top-2 left-2">
               <Badge className="bg-emerald-600 text-white">
