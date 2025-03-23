@@ -37,30 +37,30 @@ const CryptoDonation = () => {
       toast.error("Please select an image to upload");
       return;
     }
-    
+
     setIsUploading(true);
     const toasting = toast.loading("Uploading image...");
-    
+
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) throw new Error("User not authenticated");
-      
+
       // Create a reference to the users/{userId} folder
       const timestamp = Date.now().toString();
       const fileName = `crypto_donation_${timestamp}_${donationImage.name}`;
       const storageRef = ref(storage, `users/${currentUser.uid}/${fileName}`);
-      
+
       // Upload the file
       await uploadBytes(storageRef, donationImage);
-      
+
       // Get download URL
       const url = await getDownloadURL(storageRef);
       setImageUrl(url);
-      
+
       // Reset form
       setDonationImage(null);
       setAlertDialogOpen(false);
-      
+
       toast.success("Image uploaded successfully", { id: toasting });
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -85,24 +85,20 @@ const CryptoDonation = () => {
               Choose an image to upload to your user storage.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          
+
           <div className="grid gap-3 mt-2">
             <Label>Select Image</Label>
-            <Input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-            />
+            <Input type="file" accept="image/*" onChange={handleImageChange} />
             {donationImage && (
               <p className="text-xs text-green-600">
                 Image selected: {donationImage.name}
               </p>
             )}
           </div>
-          
+
           <AlertDialogFooter className="mt-4">
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <Button 
+            <Button
               onClick={uploadImageToFirebase}
               disabled={isUploading || !donationImage}
             >
@@ -115,4 +111,4 @@ const CryptoDonation = () => {
   );
 };
 
-export default CryptoDonation; 
+export default CryptoDonation;
