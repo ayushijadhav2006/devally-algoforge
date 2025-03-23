@@ -201,7 +201,7 @@ export function DonorsTable() {
         // For monetary donations
         formattedAmount = `₹${Number(donation.amount).toLocaleString()}`;
       } else if (donation.donationType === "Crypto" && donation.cryptoAmount) {
-        // For crypto with specific crypto amount
+        // For crypto with specific crypto amount - use raw value without converting
         const cryptoType = donation.cryptoType || "Crypto";
         formattedAmount = `${donation.cryptoAmount} ${cryptoType}`;
       }

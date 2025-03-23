@@ -265,6 +265,8 @@ const DonateNow = ({ ngoData }) => {
     async (amount) => {
       const donationData = {
         amount: cryptoAmount,
+        cryptoAmount: cryptoAmount,
+        cryptoType: "ETH",
         userId: auth.currentUser.uid,
         ngoId: ngoData.ngoId,
         name: onlineFormData?.name || "",
@@ -272,6 +274,7 @@ const DonateNow = ({ ngoData }) => {
         phone: onlineFormData?.phone || "",
         timestamp: new Date().toISOString(),
         transactionType: "crypto",
+        donationType: "Crypto",
       };
 
       console.log("DONATIONDATA", donationData, ngoData.ngoId);
@@ -401,11 +404,13 @@ const DonateNow = ({ ngoData }) => {
   const handleCryptoDonation = useCallback(
     (e) => {
       e.preventDefault();
+      // Don't try to do both operations at once
+      // First do approval, then handle donate in the callback
       handleApprove();
-      handleDonate();
-      updateDatabaseRecords();
+      // The donation should happen after approval succeeds
+      // handleDonate() and updateDatabaseRecords() should be called in the approval success callback
     },
-    [handleApprove, handleDonate]
+    [handleApprove]
   );
 
   return (

@@ -433,7 +433,7 @@ export default function MerchandiseManagement() {
       revenue,
       monthlySales,
       recentSales: [],
-      topBuyers: []
+      topBuyers: [] 
     });
   };
 
@@ -765,6 +765,32 @@ export default function MerchandiseManagement() {
               </div>
             )}
 
+            {/* Add Image Upload Field */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="image" className="text-right">
+                Image
+              </Label>
+              <div className="col-span-3">
+                <Input
+                  id="image"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  ref={fileInputRef}
+                  className="col-span-3"
+                />
+                {imagePreview && (
+                  <div className="mt-2">
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview" 
+                      className="h-32 w-32 object-cover rounded-md" 
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="description" className="text-right">
                 Description
@@ -927,6 +953,40 @@ export default function MerchandiseManagement() {
                   />
                 </div>
               )}
+
+              {/* Add Image Upload Field for Edit */}
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-image" className="text-right">
+                  Image
+                </Label>
+                <div className="col-span-3">
+                  <Input
+                    id="edit-image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleEditImageChange}
+                    ref={editFileInputRef}
+                    className="col-span-3"
+                  />
+                  {currentItem.imagePreview ? (
+                    <div className="mt-2">
+                      <img 
+                        src={currentItem.imagePreview} 
+                        alt="Preview" 
+                        className="h-32 w-32 object-cover rounded-md" 
+                      />
+                    </div>
+                  ) : currentItem.image && currentItem.image !== 'na' ? (
+                    <div className="mt-2">
+                      <img 
+                        src={currentItem.image} 
+                        alt="Current" 
+                        className="h-32 w-32 object-cover rounded-md" 
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              </div>
 
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="edit-description" className="text-right">

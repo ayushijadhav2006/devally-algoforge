@@ -655,7 +655,7 @@ export default function NGOActivitiesPage() {
                           onClick={() => handleManageForms(activity.id)}
                         >
                           <MoveUpRight className="mr-2 h-4 w-4" />
-                          Manage Registeration Forms
+                          Manage Forms
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

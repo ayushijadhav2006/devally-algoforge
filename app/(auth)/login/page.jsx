@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, AlertCircle, QrCode } from "lucide-react";
 import {
   signInWithEmailAndPassword,
   getMultiFactorResolver,
@@ -14,7 +14,7 @@ import {
   RecaptchaVerifier,
 } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { authenticator } from "otplib";
+import { doc, getDoc } from "firebase/firestore";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -44,6 +46,11 @@ export default function LoginPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [phoneHint, setPhoneHint] = useState("");
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
+  
+  // TOTP states
+  const [showTOTPDialog, setShowTOTPDialog] = useState(false);
+  const [userTOTPInfo, setUserTOTPInfo] = useState(null);
+  const [userId, setUserId] = useState(null);
 
   const loginHandler = async (e) => {
     e.preventDefault();
@@ -65,6 +72,41 @@ export default function LoginPage() {
         const resolver = getMultiFactorResolver(auth, error);
         setMfaResolver(resolver);
 
+        // Get user ID from resolver's hints
+        if (resolver.hints && resolver.hints.length > 0) {
+          const uid = resolver.hints[0].uid || null;
+          if (uid) {
+            setUserId(uid);
+            // Check if the user has TOTP enabled in either users or ngo collection
+            try {
+              // First check users collection
+              let userDoc = await getDoc(doc(db, "users", uid));
+              
+              // If not found in users, check ngo collection
+              if (!userDoc.exists()) {
+                userDoc = await getDoc(doc(db, "ngo", uid));
+              }
+              
+              if (userDoc.exists()) {
+                const userData = userDoc.data();
+                if (userData.mfaType === "totp" && userData.totpSecret) {
+                  setUserTOTPInfo({
+                    totpSecret: userData.totpSecret,
+                    email: email,
+                    password: password
+                  });
+                  setShowTOTPDialog(true);
+                  setLoading(false);
+                  return;
+                }
+              }
+            } catch (fetchError) {
+              console.error("Error fetching user TOTP info:", fetchError);
+            }
+          }
+        }
+
+        // If not TOTP or TOTP fetch failed, continue with Phone MFA
         // Get the phone hint (masked phone number)
         if (resolver.hints && resolver.hints.length > 0) {
           const phoneHint = resolver.hints[0].phoneNumber;
@@ -172,6 +214,53 @@ export default function LoginPage() {
       } else {
         setMfaError(error.message || "Failed to verify code");
       }
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const verifyTOTPCode = async () => {
+    setMfaError("");
+    setIsVerifying(true);
+
+    try {
+      if (!verificationCode || verificationCode.length < 6) {
+        throw new Error("Please enter a valid verification code");
+      }
+
+      if (!userTOTPInfo || !userTOTPInfo.totpSecret) {
+        throw new Error("TOTP information not initialized properly");
+      }
+
+      // Verify the TOTP code
+      const isValid = authenticator.check(verificationCode, userTOTPInfo.totpSecret);
+      
+      if (!isValid) {
+        throw new Error("Invalid verification code. Please try again.");
+      }
+
+      // Since Firebase doesn't directly support TOTP assertions,
+      // we'll use the email and password to sign in now that we've verified the TOTP
+      try {
+        // Use the stored credentials from when the user initially tried to log in
+        const userCredential = await signInWithEmailAndPassword(
+          auth, 
+          userTOTPInfo.email, 
+          userTOTPInfo.password
+        );
+        
+        console.log("TOTP verification successful, signed in:", userCredential);
+        
+        // Close dialog and redirect
+        setShowTOTPDialog(false);
+        router.push("/dashboard");
+      } catch (signInError) {
+        console.error("Error signing in after TOTP verification:", signInError);
+        throw new Error("Failed to complete login after TOTP verification");
+      }
+    } catch (error) {
+      console.error("Error verifying TOTP code:", error);
+      setMfaError(error.message || "Failed to verify code");
     } finally {
       setIsVerifying(false);
     }
@@ -333,6 +422,75 @@ export default function LoginPage() {
               </>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* TOTP Dialog */}
+      <Dialog open={showTOTPDialog} onOpenChange={(open) => !isVerifying && setShowTOTPDialog(open)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              Please enter the verification code from your authenticator app.
+            </DialogDescription>
+          </DialogHeader>
+
+          {mfaError && (
+            <Alert variant="destructive" className="mt-2">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="ml-2">{mfaError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid gap-4 py-4">
+            <div className="flex flex-col items-center justify-center mb-2 gap-2">
+              <QrCode className="h-16 w-16 text-purple-500 opacity-30" />
+              <p className="text-sm font-medium text-center">Authenticator App</p>
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="totp-code">Enter 6-digit code</Label>
+              <Input
+                id="totp-code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="• • • • • •"
+                value={verificationCode}
+                onChange={(e) => {
+                  // Only allow digits
+                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  if (value.length <= 6) {
+                    setVerificationCode(value);
+                  }
+                }}
+                maxLength={6}
+                className="text-center font-mono text-lg tracking-widest"
+              />
+            </div>
+            
+            <p className="text-sm text-gray-500 mt-1">
+              Open your authenticator app (like Google Authenticator, Authy, or Microsoft Authenticator) 
+              to get your verification code.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowTOTPDialog(false)}
+              disabled={isVerifying}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={verifyTOTPCode}
+              disabled={isVerifying || verificationCode.length < 6}
+              className="bg-[#1CAC78] hover:bg-[#18956A]"
+            >
+              {isVerifying ? "Verifying..." : "Verify"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
