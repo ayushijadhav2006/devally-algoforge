@@ -85,17 +85,20 @@ const NGOListPage = () => {
   // Function to fetch nearby NGOs from API
   const fetchNearbyNGOs = async (latitude, longitude) => {
     try {
-      const response = await fetch("http://localhost:8000/nearby-ngos/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          latitude,
-          longitude,
-          radius: 50, // 50km radius
-        }),
-      });
+      const response = await fetch(
+        "https://geolocation-smile-share.onrender.com/nearby-ngos/",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            latitude,
+            longitude,
+            radius: 50, // 50km radius
+          }),
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to fetch nearby NGOs");

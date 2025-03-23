@@ -43,6 +43,7 @@
     "@tsparticles/react": "^3.0.0",
     "@tsparticles/slim": "^3.8.1",
     "@types/react-autosuggest": "^10.1.11",
+    "@upstash/qstash": "^2.7.22",
     "@yudiel/react-qr-scanner": "^2.2.1",
     "ai": "^4.1.10",
     "antd": "^5.24.1",
