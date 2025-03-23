@@ -24,7 +24,8 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import { useReadContract } from "wagmi";
-import { formatEther, parseUnits } from "ethers";
+import { ethers } from "ethers";
+import { formatEther, parseUnits } from "ethers/lib/utils";
 import { toast } from "react-hot-toast";
 import { currentTimestamp } from "@/constants";
 
