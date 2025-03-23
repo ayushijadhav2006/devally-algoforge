@@ -26,12 +26,15 @@ const Layout = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState({});
   const [ngoVerificationStatus, setNgoVerificationStatus] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
     let userDocUnsubscribe = null;
     let ngoDocUnsubscribe = null;
+    let notificationsUnsubscribe = null;
 
     const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -39,6 +42,25 @@ const Layout = ({ children }) => {
         router.push("/login");
         return;
       }
+
+      // Set up real-time listener for notifications
+      const notificationsRef = doc(db, "notifications", user.uid);
+
+      notificationsUnsubscribe = onSnapshot(notificationsRef, (doc) => {
+        if (doc.exists()) {
+          const notificationsData = doc.data()?.notifications || [];
+          // Sort notifications by timestamp (newest first)
+          const sortedNotifications = [...notificationsData].sort((a, b) => {
+            const dateA = a.timestamp?.toDate?.() || new Date(a.timestamp || 0);
+            const dateB = b.timestamp?.toDate?.() || new Date(b.timestamp || 0);
+            return dateB - dateA;
+          });
+          setNotifications(sortedNotifications);
+        } else {
+          setNotifications([]);
+        }
+        setNotificationsLoading(false);
+      });
 
       // Set up real-time listener for the user document
       const userDocRef = doc(db, "users", user.uid);
@@ -122,6 +144,9 @@ const Layout = ({ children }) => {
       if (ngoDocUnsubscribe) {
         ngoDocUnsubscribe();
       }
+      if (notificationsUnsubscribe) {
+        notificationsUnsubscribe();
+      }
     };
   }, [router, pathname]);
 
@@ -188,7 +213,13 @@ const Layout = ({ children }) => {
 
     // For admin users - full access
     if (userData.role === "admin") {
-      return baseNavConfig;
+      return {
+        ...baseNavConfig,
+        // Add notifications count to the bottom nav
+        bottomNavItems: [
+          { name: "Settings", icon: Settings, href: "/dashboard/ngo/settings" },
+        ],
+      };
     }
 
     // For member users with different access levels
@@ -255,6 +286,7 @@ const Layout = ({ children }) => {
   }
 
   const navConfig = getNavConfig();
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
   return (
     <div className="flex min-h-screen bg-gray-100">
@@ -263,6 +295,8 @@ const Layout = ({ children }) => {
         setIsOpen={setIsSideNavOpen}
         navConfig={navConfig}
         type={userData.type}
+        notifications={notifications}
+        notificationsLoading={notificationsLoading}
       />
       <main
         className="flex-1 overflow-y-auto"

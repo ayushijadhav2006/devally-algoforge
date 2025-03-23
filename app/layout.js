@@ -9,6 +9,7 @@ import WebProvider from "@/providers/WebProvider";
 import { LanguageProvider } from "@/context/LanguageContext";
 import { GamificationProvider } from "@/context/GamificationContext";
 import "leaflet/dist/leaflet.css";
+// import { ThirdwebProvider } from "@thirdweb-dev/react";
 
 export const metadata = {
   title: "SMILE-SHARE",

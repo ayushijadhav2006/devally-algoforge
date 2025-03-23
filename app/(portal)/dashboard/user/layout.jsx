@@ -22,7 +22,7 @@ import Chatbot from "@/components/chatbot";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, onSnapshot } from "firebase/firestore";
 import Loading from "@/components/loading/Loading";
 import { NotificationProvider } from "@/providers/NotificationProvider";
 
@@ -78,9 +78,13 @@ const NavConfig = {
 const Layout = ({ children }) => {
   const [isSideNavOpen, setIsSideNavOpen] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
+    let notificationsUnsubscribe = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) {
         setLoading(true);
@@ -88,10 +92,29 @@ const Layout = ({ children }) => {
         return;
       }
 
+      // Set up real-time listener for notifications
+      const notificationsRef = doc(db, "notifications", user.uid);
+
+      notificationsUnsubscribe = onSnapshot(notificationsRef, (doc) => {
+        if (doc.exists()) {
+          const notificationsData = doc.data()?.notifications || [];
+          // Sort notifications by timestamp (newest first)
+          const sortedNotifications = [...notificationsData].sort((a, b) => {
+            const dateA = a.timestamp?.toDate?.() || new Date(a.timestamp || 0);
+            const dateB = b.timestamp?.toDate?.() || new Date(b.timestamp || 0);
+            return dateB - dateA;
+          });
+          setNotifications(sortedNotifications);
+        } else {
+          setNotifications([]);
+        }
+        setNotificationsLoading(false);
+      });
+
+      // Continue with the existing user document check
       const userDoc = await getDoc(doc(db, "users", user.uid));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        console.log("User data:", userData);
         if (userData.type === "ngo") {
           setLoading(false);
           router.push("/dashboard/ngo");
@@ -100,7 +123,12 @@ const Layout = ({ children }) => {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (notificationsUnsubscribe) {
+        notificationsUnsubscribe();
+      }
+    };
   }, [router]);
 
   if (loading) {
