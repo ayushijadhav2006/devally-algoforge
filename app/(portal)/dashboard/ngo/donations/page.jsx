@@ -37,6 +37,9 @@
   import toast from "react-hot-toast";
   import { parseUnits } from "ethers";
   import ResourcesDonation from "@/components/ngo/ResourcesDonation";
+  import { CryptoDonationTable } from "@/components/CryptoDonationTable";
+  import { CryptoPayoutButton } from "@/components/CryptoPayoutButton";
+  import CryptoDonation from "@/components/ngo/CryptoDonation";
 
   export default function NGODonationsPage() {
     const [user, setUser] = useState(null);
@@ -273,80 +276,42 @@
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-2xl font-bold">NGO Donations Dashboard</h1>
-      <div className="flex flex-col-reverse gap-3 mt-4 justify-between items-center mb-6">
-        {/* <div className="flex items-center gap-2">
-          <ResourcesDonation />
-          <OnlineDonation />
-          <CashDonation />
-        </div> */}
-        {/* <d  iv className="flex items-center gap-4">
-          {ngoProfile?.donationsData?.isCryptoTransferEnabled &&
-            ngoProfile?.donationsData?.ngoOwnerAddContract && (
-              <>
-                <div className="text-green-600 font-semibold px-4 py-2 bg-green-100 rounded-full">
-                  Balance:{" "}
-                  {ngoBalancePending
-                    ? "Loading..."
-                    : ngoBalanceError
-                      ? "Error loading balance"
-                      : `${formatEther(ngoBalance || 0n)} NGC`}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder="Amount (NGC)"
-                    value={payoutAmount}
-                    onChange={(e) => setPayoutAmount(e.target.value)}
-                    min="1"
-                    max={formatEther(ngoBalance || 0n)}
-                    className="w-32"
-                  />
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                    className="w-48"
-                  />
-                  <Button
-                    onClick={handleRequestPayout}
-                    disabled={isSubmitting || !payoutAmount || !proofImage}
-                  >
-                    {isSubmitting ? "Processing..." : "Request Payout"}
-                  </Button>
-                </div>
-              </>
-            )}
-        </d> */}
+      <div className="flex flex-col-reverse md:flex-row gap-3 mt-4 justify-between items-center mb-6">
       </div>
 
-        {/* Stats and Charts - Always visible */}
-        <DonationsDashboard />
+      {/* Stats and Charts - Always visible */}
+      <DonationsDashboard />
 
-        {/* Tabs Section - Below Stats and Charts */}
-        <Tabs defaultValue="donors" className="mt-6">
-          <TabsList>
-            <TabsTrigger value="donors">Donors</TabsTrigger>
-            <TabsTrigger value="cash">Cash</TabsTrigger>
-            <TabsTrigger value="online">Online</TabsTrigger>
-            <TabsTrigger value="resources">Resources</TabsTrigger>
-          </TabsList>
+      {/* Tabs Section - Below Stats and Charts */}
+      <Tabs defaultValue="donors" className="mt-6">
+        <TabsList>
+          <TabsTrigger value="donors">Donors</TabsTrigger>
+          <TabsTrigger value="cash">Cash</TabsTrigger>
+          <TabsTrigger value="online">Online</TabsTrigger>
+          <TabsTrigger value="resources">Resources</TabsTrigger>
+          <TabsTrigger value="cryptocurrency">Cryptocurrency</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="donors">
-            <DonorsTable />
-          </TabsContent>
+        <TabsContent value="donors">
+          <DonorsTable />
+        </TabsContent>
 
-          <TabsContent value="cash">
-            <CashDonationTable />
-          </TabsContent>
+        <TabsContent value="cash">
+          <CashDonationTable />
+        </TabsContent>
 
-          <TabsContent value="online">
-            <OnlineDonationTable />
-          </TabsContent>
+        <TabsContent value="online">
+          <OnlineDonationTable />
+        </TabsContent>
 
-          <TabsContent value="resources">
-            <ResDonationTable />
-          </TabsContent>
-        </Tabs>
-      </div>
-    );
-  }
+        <TabsContent value="resources">
+          <ResDonationTable />
+        </TabsContent>
+        
+        <TabsContent value="cryptocurrency">
+          <CryptoDonationTable ngoProfile={ngoProfile} userId={user?.uid} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
