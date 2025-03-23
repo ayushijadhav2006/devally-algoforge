@@ -1,45 +1,46 @@
 "use client";
 
-  import { useEffect, useState } from "react";
-  import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-  import { DonationsDashboard } from "@/components/donations-dashboard";
-  import { DonationsTransactions } from "@/components/donations-transactions";
-  import { PayoutManagement } from "@/components/payout-management";
-  import { DonorsTable } from "@/components/donors-table";
-  import CashDonation from "@/components/ngo/CashDonation";
-  import OnlineDonation from "@/components/ngo/OnlineDonation";
-  import { CashDonationTable } from "@/components/CashDonationTable";
-  import { OnlineDonationTable } from "@/components/OnlineDonationTable";
-  import { onAuthStateChanged } from "firebase/auth";
-  import { auth, db } from "@/lib/firebase";
-  import {
-    doc,
-    getDoc,
-    collection,
-    getDocs,
-    collectionGroup,
-    setDoc,
-  } from "firebase/firestore";
-  import { useRouter } from "next/navigation";
-  import Loading from "@/components/loading/Loading";
-  import { ResDonationTable } from "@/components/ResDonationTable";
-  import {
-    useReadContract,
-    useWriteContract,
-    useWaitForTransactionReceipt,
-  } from "wagmi";
-  import { NGOABI } from "@/constants/contract";
-  import { formatEther, parseEther } from "viem";
-  import { Button } from "@/components/ui/button";
-  import { Input } from "@/components/ui/input";
-  import { storage } from "@/lib/firebase";
-  import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-  import toast from "react-hot-toast";
-  import { parseUnits } from "ethers/lib/utils";
-  import ResourcesDonation from "@/components/ngo/ResourcesDonation";
-  import { CryptoDonationTable } from "@/components/CryptoDonationTable";
-  import { CryptoPayoutButton } from "@/components/CryptoPayoutButton";
-  import CryptoDonation from "@/components/ngo/CryptoDonation";
+import { useEffect, useState } from "react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DonationsDashboard } from "@/components/donations-dashboard";
+import { DonationsTransactions } from "@/components/donations-transactions";
+import { PayoutManagement } from "@/components/payout-management";
+import { DonorsTable } from "@/components/donors-table";
+import CashDonation from "@/components/ngo/CashDonation";
+import OnlineDonation from "@/components/ngo/OnlineDonation";
+import { CashDonationTable } from "@/components/CashDonationTable";
+import { OnlineDonationTable } from "@/components/OnlineDonationTable";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth, db } from "@/lib/firebase";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  collectionGroup,
+  setDoc,
+} from "firebase/firestore";
+import { useRouter } from "next/navigation";
+import Loading from "@/components/loading/Loading";
+import { ResDonationTable } from "@/components/ResDonationTable";
+import {
+  useReadContract,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
+import { NGOABI } from "@/constants/contract";
+import { SuperAdminABI } from "@/constants/contract";
+import { formatEther, parseEther } from "viem";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { storage } from "@/lib/firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import toast from "react-hot-toast";
+import { parseUnits } from "ethers/lib/utils";
+import ResourcesDonation from "@/components/ngo/ResourcesDonation";
+import { CryptoDonationTable } from "@/components/CryptoDonationTable";
+import { CryptoPayoutButton } from "@/components/CryptoPayoutButton";
+import CryptoDonation from "@/components/ngo/CryptoDonation";
 
 export default function NGODonationsPage() {
   const [user, setUser] = useState(null);
@@ -52,15 +53,29 @@ export default function NGODonationsPage() {
   const [proofImage, setProofImage] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // First, get the NGO contract address
+  const {
+    data: ngoContractAddress,
+    error: ngoContractError,
+    isPending: ngoContractPending,
+  } = useReadContract({
+    address: "0xd4fb2E1C31b146b2EA7521d594Eb7e6eCDF02F93", // SuperAdmin contract address
+    abi: SuperAdminABI,
+    functionName: "ngoContracts",
+    args: [ngoProfile?.donationsData?.cryptoWalletAddress],
+    enabled: Boolean(ngoProfile?.donationsData?.cryptoWalletAddress),
+  });
+
+  // Then, get the available balance using the fetched contract address
   const {
     data: ngoBalance,
     error: ngoBalanceError,
     isPending: ngoBalancePending,
   } = useReadContract({
-    address: ngoProfile?.donationsData?.ngoOwnerAddContract || undefined,
+    address: ngoContractAddress,
     abi: NGOABI,
     functionName: "getAvailableBalance",
-    enabled: Boolean(ngoProfile?.donationsData?.ngoOwnerAddContract),
+    enabled: Boolean(ngoContractAddress),
   });
 
   const { writeContract, data: hash } = useWriteContract();
@@ -227,7 +242,7 @@ export default function NGODonationsPage() {
     try {
       setIsSubmitting(true);
 
-      if (!ngoProfile?.donationsData?.ngoOwnerAddContract) {
+      if (!ngoContractAddress) {
         throw new Error("No contract address found");
       }
 
@@ -251,7 +266,7 @@ export default function NGODonationsPage() {
 
       // Request payout through smart contract
       writeContract({
-        address: ngoProfile.donationsData.ngoOwnerAddContract,
+        address: ngoContractAddress,
         abi: NGOABI,
         functionName: "requestPayout",
         args: [payoutAmountUpdated, imageUrl],
@@ -276,7 +291,16 @@ export default function NGODonationsPage() {
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-2xl font-bold">NGO Donations Dashboard</h1>
-      <div className="flex flex-col-reverse md:flex-row gap-3 mt-4 justify-between items-center mb-6"></div>
+      <div className="flex flex-col-reverse md:flex-row gap-3 mt-4 justify-between items-center mb-6">
+        {ngoProfile?.donationsData?.cryptoPaymentEnabled && ngoBalance && (
+          <div className="bg-white p-4 rounded-lg shadow-md">
+            <h3 className="text-lg font-semibold">Available Balance</h3>
+            <p className="text-2xl font-bold text-primary">
+              {formatEther(ngoBalance)} SMC
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Stats and Charts - Always visible */}
       <DonationsDashboard />
