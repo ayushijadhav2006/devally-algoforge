@@ -14,6 +14,7 @@ import {
   Bookmark,
   ArrowBigDown,
   MoveUpRight,
+  Plus,
 } from "lucide-react";
 import { PayoutManagement } from "@/components/payout-management";
 import Image from "next/image";
@@ -47,51 +48,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import Link from "next/link";
-
-const events = [
-  {
-    id: 1,
-    title: "Beach Cleanup",
-    date: "2023-08-15",
-    location: "Sunny Beach",
-    volunteers: 45,
-    description:
-      "Join us for a day of cleaning up our beautiful beaches and protecting marine life.",
-    images: [
-      "https://source.unsplash.com/random/800x600/?beach,cleanup",
-      "https://source.unsplash.com/random/800x600/?ocean,plastic",
-      "https://source.unsplash.com/random/800x600/?volunteer,beach",
-    ],
-  },
-  {
-    id: 2,
-    title: "Food Drive",
-    date: "2023-08-20",
-    location: "Community Center",
-    volunteers: 30,
-    description:
-      "Help us collect and distribute food to those in need in our community.",
-    images: [
-      "https://source.unsplash.com/random/800x600/?food,donation",
-      "https://source.unsplash.com/random/800x600/?volunteer,foodbank",
-      "https://source.unsplash.com/random/800x600/?community,help",
-    ],
-  },
-  {
-    id: 3,
-    title: "Tree Planting",
-    date: "2023-08-10",
-    location: "City Park",
-    volunteers: 60,
-    description:
-      "Let's make our city greener by planting trees in the local park.",
-    images: [
-      "https://source.unsplash.com/random/800x600/?tree,planting",
-      "https://source.unsplash.com/random/800x600/?forest,sapling",
-      "https://source.unsplash.com/random/800x600/?nature,conservation",
-    ],
-  },
-];
 
 export default function NGOActivitiesPage() {
   const params = useParams();
@@ -152,8 +108,10 @@ export default function NGOActivitiesPage() {
         location: editedActivity.location,
         eventDate: editedActivity.eventDate,
         participationDeadline: editedActivity.participationDeadline,
-        coordinator: editedActivity.coordinator,
         contactEmail: editedActivity.contactEmail,
+        feedbackEmailsSent: false,
+        feedbackEmailsSentAt: null,
+        endDate: editedActivity.eventDate,
       });
       setIsEditDialogOpen(false);
     } catch (error) {
@@ -208,6 +166,13 @@ export default function NGOActivitiesPage() {
                 <div className="flex items-center space-x-2 text-gray-500">
                   {user?.uid === activity.ngoId && (
                     <>
+                      {/* <Button
+                        className="bg-[#1CAC78] hover:bg-[#158f63] "
+                        // onClick={handleEdit}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Budget
+                      </Button> */}
                       <Button
                         className="bg-[#1CAC78] hover:bg-[#158f63] "
                         onClick={handleEdit}
@@ -223,8 +188,7 @@ export default function NGOActivitiesPage() {
                     href={`/dashboard/ngo/activities/${activity.id}/forms`}
                     className="bg-white flex border-2 border-black items-center text-sm rounded-lg p-2 shadow-md"
                   >
-                    <MoveUpRight className="mr-2 h-4 w-4" /> Manage
-                    Registeration Forms
+                    <MoveUpRight className="mr-2 h-4 w-4" /> Manage Forms
                   </Link>
                 </div>
               </CardTitle>

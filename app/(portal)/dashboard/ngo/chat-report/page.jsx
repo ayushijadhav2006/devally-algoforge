@@ -1,105 +1,60 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from "react"
-import { Card, CardContent } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Textarea } from "@/components/ui/textarea"
-import { Upload, Send, FileText, Paperclip, X, RotateCw } from "lucide-react"
+import { useState, useRef, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Textarea } from "@/components/ui/textarea";
+import { Upload, Send, FileText, Paperclip, X, RotateCw } from "lucide-react";
 
-// Initialize Gemini AI with error handling
-let genAI = null;
+// API configuration
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  "https://geolocation-smile-share.onrender.com";
 
 export default function ChatbotPage() {
-  const [file, setFile] = useState(null)
-  const [isUploading, setIsUploading] = useState(false)
-  const [messages, setMessages] = useState([])
-  const [inputMessage, setInputMessage] = useState("")
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [model, setModel] = useState(null)
-  const [chat, setChat] = useState(null)
-  const fileInputRef = useRef(null)
-  const messagesEndRef = useRef(null)
-  const [showExamples, setShowExamples] = useState(true)
-  const [fileError, setFileError] = useState("")
+  const [file, setFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const fileInputRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const [showExamples, setShowExamples] = useState(true);
+  const [fileError, setFileError] = useState("");
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  useEffect(() => {
-    // Initialize the model
-    const initModel = async () => {
-      try {
-        if (!process.env.NEXT_PUBLIC_GEMINI_API_KEY) {
-          throw new Error('Gemini API key is not set in environment variables');
-        }
-
-        const { GoogleGenerativeAI } = await import('@google/generative-ai');
-        const genAI = new GoogleGenerativeAI(process.env.NEXT_PUBLIC_GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-        setModel(model);
-        
-        // Start a new chat
-        const chat = model.startChat({
-          history: [],
-          generationConfig: {
-            maxOutputTokens: 2048,
-          },
-        });
-        setChat(chat);
-      } catch (error) {
-        console.error("Error initializing Gemini:", error);
-        setMessages([{
-          role: "system",
-          content: "Error initializing AI model. Please check your API key and try again."
-        }]);
-      }
-    };
-
-    initModel();
-  }, []);
+    scrollToBottom();
+  }, [messages]);
 
   /**
    * Process PDF with Python backend
-   * This replaces all the previous PDF.js and OCR extraction code
    */
-  async function processPDFWithPythonBackend(pdfFile, question = null) {
+  async function processPDFWithPythonBackend(pdfFile, question) {
     try {
       const formData = new FormData();
-      formData.append('file', pdfFile);
-      
-      if (question) {
-        formData.append('question', question);
-      }
-      
-      // Get API key from Next.js environment
-      const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
-      
-      const headers = {};
-      if (apiKey) {
-        headers['X-Gemini-API-Key'] = apiKey;
-      }
-      
-      const response = await fetch('http://localhost:8000/process', {
-        method: 'POST',
-        headers: headers,
+      formData.append("file", pdfFile);
+      formData.append("question", question);
+
+      const response = await fetch(`${API_BASE_URL}/chat-with-pdf/`, {
+        method: "POST",
         body: formData,
+        // Don't set Content-Type header - let the browser set it with the boundary
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Error processing PDF');
+        throw new Error(errorData.detail || "Error processing PDF");
       }
-      
+
       const data = await response.json();
       return data.answer;
     } catch (error) {
-      console.error('Error processing PDF:', error);
+      console.error("Error processing PDF:", error);
       throw error;
     }
   }
@@ -107,35 +62,35 @@ export default function ChatbotPage() {
   const handleFileUpload = async (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
-    
+
     if (selectedFile.type !== "application/pdf") {
-      alert("Please upload a PDF file");
+      setFileError("Please upload a PDF file");
       return;
     }
-    
+
     setIsUploading(true);
     setFileError("");
-    
+
     try {
       // Process the PDF with the Python backend
       const initialAnalysis = await processPDFWithPythonBackend(
-        selectedFile, 
+        selectedFile,
         "Analyze this document. If it appears to be a donation report, identify the total donation amount, number of donors, and any other key information."
       );
-      
+
       // Update UI with the file and initial message
       setFile(selectedFile);
       setMessages([
         {
           role: "system",
-          content: `PDF "${selectedFile.name}" has been processed successfully.`
+          content: `PDF "${selectedFile.name}" has been processed successfully.`,
         },
         {
           role: "assistant",
-          content: initialAnalysis
-        }
+          content: initialAnalysis,
+        },
       ]);
-      
+
       setShowExamples(false);
     } catch (error) {
       setFileError(`Error processing PDF: ${error.message}`);
@@ -146,27 +101,23 @@ export default function ChatbotPage() {
   };
 
   const handleSendMessage = async () => {
-    if (!inputMessage.trim() || !file) return;
-    
+    if (!inputMessage.trim() || !file || isProcessing) return;
+
     const userMessage = { role: "user", content: inputMessage };
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
+    setMessages((prev) => [...prev, userMessage]);
     setInputMessage("");
     setIsProcessing(true);
-    
+
     try {
       // Process the question with the Python backend
       const answer = await processPDFWithPythonBackend(file, inputMessage);
-      
+
       // Update messages with AI response
-      setMessages([
-        ...updatedMessages,
-        { role: "assistant", content: answer }
-      ]);
+      setMessages((prev) => [...prev, { role: "assistant", content: answer }]);
     } catch (error) {
-      setMessages([
-        ...updatedMessages,
-        { role: "assistant", content: `Error: ${error.message}` }
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: `Error: ${error.message}` },
       ]);
     } finally {
       setIsProcessing(false);
@@ -174,16 +125,30 @@ export default function ChatbotPage() {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
     }
-  }
+  };
 
   const clearChat = () => {
-    setMessages([])
-    setShowExamples(true)
-  }
+    setMessages([]);
+    setShowExamples(true);
+  };
+
+  const removeFile = () => {
+    setFile(null);
+    setMessages([]);
+    setShowExamples(true);
+    setFileError("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const handleExampleClick = (question) => {
+    setInputMessage(question);
+  };
 
   // Example questions to get started
   const examples = [
@@ -193,21 +158,7 @@ export default function ChatbotPage() {
     "When was the last donation made?",
     "What types of donation methods were used?",
     "Compare donations from last month to this month",
-  ]
-
-  const removeFile = () => {
-    setFile(null)
-    setMessages([])
-    setShowExamples(true)
-    setFileError("")
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
-  }
-
-  const handleExampleClick = (question) => {
-    setInputMessage(question)
-  }
+  ];
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -224,9 +175,12 @@ export default function ChatbotPage() {
                 <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
                   <Upload className="w-10 h-10 text-muted-foreground" />
                 </div>
-                <h3 className="text-xl font-medium mb-2">Upload a PDF Report</h3>
+                <h3 className="text-xl font-medium mb-2">
+                  Upload a PDF Report
+                </h3>
                 <p className="text-muted-foreground text-center mb-6 max-w-md">
-                  Upload your donation reports or any PDF file to analyze it using AI
+                  Upload your donation reports or any PDF file to analyze it
+                  using AI
                 </p>
                 <div className="flex flex-col items-center gap-4">
                   <Button onClick={() => fileInputRef.current?.click()}>
@@ -275,7 +229,7 @@ export default function ChatbotPage() {
                     </Button>
                   </div>
                 </div>
-                {/* Chat Messages */}
+
                 <div className="flex-1 overflow-y-auto mb-4 space-y-4">
                   {messages.map((message, index) => (
                     <div
@@ -291,9 +245,13 @@ export default function ChatbotPage() {
                           message.role === "user" ? "flex-row-reverse" : ""
                         }`}
                       >
-                        <Avatar className={`w-8 h-8 mt-0.5 ${
-                          message.role === "assistant" ? "bg-primary" : "bg-muted"
-                        }`}>
+                        <Avatar
+                          className={`w-8 h-8 mt-0.5 ${
+                            message.role === "assistant"
+                              ? "bg-primary"
+                              : "bg-muted"
+                          }`}
+                        >
                           <AvatarFallback>
                             {message.role === "user" ? "U" : "AI"}
                           </AvatarFallback>
@@ -303,11 +261,13 @@ export default function ChatbotPage() {
                             message.role === "user"
                               ? "bg-primary text-primary-foreground"
                               : message.role === "system"
-                              ? "bg-muted text-muted-foreground text-sm"
-                              : "bg-muted"
+                                ? "bg-muted text-muted-foreground text-sm"
+                                : "bg-muted"
                           }`}
                         >
-                          <div className="whitespace-pre-wrap">{message.content}</div>
+                          <div className="whitespace-pre-wrap">
+                            {message.content}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -328,7 +288,7 @@ export default function ChatbotPage() {
                       </div>
                     </div>
                   )}
-                  {/* Examples */}
+
                   {showExamples && messages.length === 0 && (
                     <div className="p-4 border rounded-lg">
                       <h3 className="text-sm font-medium mb-2">
@@ -349,7 +309,7 @@ export default function ChatbotPage() {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
-                {/* Input */}
+
                 <div className="flex items-center gap-2 pt-2">
                   <Textarea
                     value={inputMessage}
@@ -387,5 +347,5 @@ export default function ChatbotPage() {
         </div>
       )}
     </div>
-  )
+  );
 }

@@ -21,6 +21,7 @@ const NgoRegistrationPage = () => {
     ngoName: "",
     phone: "",
     pan: "",
+    registrationNumber: "",
   });
   const [invalidInputs, setInvalidInputs] = useState([]);
   const router = useRouter();
@@ -378,16 +379,14 @@ const NgoRegistrationPage = () => {
           type="submit"
           disabled={
             !(
-              (
-                formData.name &&
-                formData.email &&
-                formData.password &&
-                formData.ngoName &&
-                formData.phone &&
-                formData.pan &&
-                invalidInputs.length === 0 &&
-                ndaAccepted
-              ) // Ensure no validation error exists
+              formData.name &&
+              formData.email &&
+              formData.password &&
+              formData.ngoName &&
+              formData.phone &&
+              formData.registrationNumber &&
+              invalidInputs.length === 0 &&
+              ndaAccepted
             )
           }
           className="relative group/btn bg-[#1CAC78] hover:bg-[#18956A] disabled:bg-[#1cac77c5] disabled:hover:bg-[#1895698f] disabled:cursor-not-allowed block w-full text-white rounded-md h-10 font-medium transition-colors duration-200 shadow-[0px_1px_0px_0px_#1CAC7840_inset,0px_-1px_0px_0px_#1CAC7840_inset]"
