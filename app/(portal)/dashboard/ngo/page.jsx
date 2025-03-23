@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import Joyride, { ACTIONS, EVENTS, STATUS } from "react-joyride";
+// import Joyride, { ACTIONS, EVENTS, STATUS } from "react-joyride";
 import { MetricsOverview } from "@/components/ngo-dashboard/metrics-overview";
 import { QuickActions } from "@/components/ngo-dashboard/quick-actions";
 import { RecentActivities } from "@/components/ngo-dashboard/recent-activities";
@@ -17,11 +17,11 @@ export default function DashboardPage() {
   const [ngoName, setNgoName] = useState("Loading...");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [runTour, setRunTour] = useState(false);
-  const [showRestartButton, setShowRestartButton] = useState(false);
+  // const [runTour, setRunTour] = useState(false);
+  // const [showRestartButton, setShowRestartButton] = useState(false);
   const [showTranslationModal, setShowTranslationModal] = useState(false);
   const { language, translations } = useLanguage(); // Use language context
-  const joyrideRef = useRef(null);
+  // const joyrideRef = useRef(null);
 
   useEffect(() => {
     const fetchNgoName = async () => {
@@ -76,97 +76,97 @@ export default function DashboardPage() {
     fetchNgoName();
   }, []);
 
-  const handleJoyrideCallback = (data) => {
-    const { action, index, status, type } = data;
+  // const handleJoyrideCallback = (data) => {
+  //   const { action, index, status, type } = data;
 
-    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
-      setShowRestartButton(true);
-      setRunTour(false);
+  //   if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
+  //     setShowRestartButton(true);
+  //     setRunTour(false);
 
-      // Dispatch custom event for sidebar tour
-      const event = new CustomEvent("startSidebarTour", {
-        detail: { startTour: true },
-      });
-      window.dispatchEvent(event);
-    }
+  //     // Dispatch custom event for sidebar tour
+  //     const event = new CustomEvent("startSidebarTour", {
+  //       detail: { startTour: true },
+  //     });
+  //     window.dispatchEvent(event);
+  //   }
 
-    if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type)) {
-      setRunTour(true); // Keep the tour running
-    }
-  };
+  //   if ([EVENTS.STEP_AFTER, EVENTS.TARGET_NOT_FOUND].includes(type)) {
+  //     setRunTour(true); // Keep the tour running
+  //   }
+  // };
 
-  const handleRestartTour = () => {
-    localStorage.removeItem("hasSeenDashboardTour");
-    localStorage.removeItem("hasCompletedFullTour");
-    setRunTour(true);
-    setShowRestartButton(false);
-  };
+  // const handleRestartTour = () => {
+  //   localStorage.removeItem("hasSeenDashboardTour");
+  //   localStorage.removeItem("hasCompletedFullTour");
+  //   setRunTour(true);
+  //   setShowRestartButton(false);
+  // };
 
   // Joyride Steps for Dashboard - Updated with translations
-  const tourSteps = [
-    {
-      target: "#dashboard-title",
-      content:
-        translations.dashboard_tour_welcome || 
-        "Welcome to your NGO dashboard! This is your central hub for managing all NGO activities.",
-      placement: "bottom",
-      disableBeacon: true,
-    },
-    {
-      target: "#metrics-overview",
-      content:
-        translations.dashboard_tour_metrics || 
-        "Here you can track your donations, beneficiaries reached, and other key performance metrics.",
-      placement: "top",
-    },
-    {
-      target: "#quick-actions",
-      content:
-        translations.dashboard_tour_actions || 
-        "Use these quick actions to perform key tasks faster, like creating new campaigns or registering beneficiaries.",
-      placement: "bottom",
-    },
-    {
-      target: "#recent-activities",
-      content:
-        translations.dashboard_tour_activities || 
-        "See all your recent activities and updates here, helping you stay on top of what's happening.",
-      placement: "bottom",
-    },
-    {
-      target: "#reports-section",
-      content:
-        translations.dashboard_tour_reports || 
-        "Generate and analyze reports for your NGO's performance and track your impact over time.",
-      placement: "top",
-    },
-  ];
+  // const tourSteps = [
+  //   {
+  //     target: "#dashboard-title",
+  //     content:
+  //       translations.dashboard_tour_welcome ||
+  //       "Welcome to your NGO dashboard! This is your central hub for managing all NGO activities.",
+  //     placement: "bottom",
+  //     disableBeacon: true,
+  //   },
+  //   {
+  //     target: "#metrics-overview",
+  //     content:
+  //       translations.dashboard_tour_metrics ||
+  //       "Here you can track your donations, beneficiaries reached, and other key performance metrics.",
+  //     placement: "top",
+  //   },
+  //   {
+  //     target: "#quick-actions",
+  //     content:
+  //       translations.dashboard_tour_actions ||
+  //       "Use these quick actions to perform key tasks faster, like creating new campaigns or registering beneficiaries.",
+  //     placement: "bottom",
+  //   },
+  //   {
+  //     target: "#recent-activities",
+  //     content:
+  //       translations.dashboard_tour_activities ||
+  //       "See all your recent activities and updates here, helping you stay on top of what's happening.",
+  //     placement: "bottom",
+  //   },
+  //   {
+  //     target: "#reports-section",
+  //     content:
+  //       translations.dashboard_tour_reports ||
+  //       "Generate and analyze reports for your NGO's performance and track your impact over time.",
+  //     placement: "top",
+  //   },
+  // ];
 
   // CSS to highlight elements during tour
-  useEffect(() => {
-    if (runTour) {
-      // Add CSS for tour highlighting
-      const styleEl = document.createElement("style");
-      styleEl.id = "tour-highlighting-styles";
-      styleEl.innerHTML = `
-        .react-joyride__spotlight {
-          border: 3px solid #1CAC78 !important;
-          box-shadow: 0 0 15px rgba(28, 172, 120, 0.5) !important;
-        }
-      `;
-      document.head.appendChild(styleEl);
+  // useEffect(() => {
+  //   if (runTour) {
+  //     // Add CSS for tour highlighting
+  //     const styleEl = document.createElement("style");
+  //     styleEl.id = "tour-highlighting-styles";
+  //     styleEl.innerHTML = `
+  //       .react-joyride__spotlight {
+  //         border: 3px solid #1CAC78 !important;
+  //         box-shadow: 0 0 15px rgba(28, 172, 120, 0.5) !important;
+  //       }
+  //     `;
+  //     document.head.appendChild(styleEl);
 
-      return () => {
-        // Clean up when tour ends
-        const styleElement = document.getElementById(
-          "tour-highlighting-styles"
-        );
-        if (styleElement) {
-          styleElement.remove();
-        }
-      };
-    }
-  }, [runTour]);
+  //     return () => {
+  //       // Clean up when tour ends
+  //       const styleElement = document.getElementById(
+  //         "tour-highlighting-styles"
+  //       );
+  //       if (styleElement) {
+  //         styleElement.remove();
+  //       }
+  //     };
+  //   }
+  // }, [runTour]);
 
   // Loading state with translations
   if (loading) {
@@ -177,7 +177,9 @@ export default function DashboardPage() {
             className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"
             role="status"
           >
-            <span className="sr-only">{translations.loading || "Loading..."}</span>
+            <span className="sr-only">
+              {translations.loading || "Loading..."}
+            </span>
           </div>
           <p className="mt-2 text-gray-600">
             {translations.loading_dashboard || "Loading your dashboard..."}
@@ -225,7 +227,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Restart Tour Button */}
-      {showRestartButton && (
+      {/* {showRestartButton && (
         <button
           id="restart-tour-button"
           onClick={handleRestartTour}
@@ -235,10 +237,10 @@ export default function DashboardPage() {
           <HelpCircle size={18} />
           <span>{translations.restart_guide_tour || "Restart Guide Tour"}</span>
         </button>
-      )}
+      )} */}
 
       {/* React Joyride Tour */}
-      <Joyride
+      {/* <Joyride
         ref={joyrideRef}
         steps={tourSteps}
         run={runTour}
@@ -279,14 +281,14 @@ export default function DashboardPage() {
           close: translations.close || "Close",
           last: translations.finish || "Finish",
           next: translations.next || "Next",
-          skip: translations.skip || "Skip"
+          skip: translations.skip || "Skip",
         }}
-      />
+      /> */}
 
       {/* Translation Modal */}
-      <TranslationModal 
-        isOpen={showTranslationModal} 
-        onClose={() => setShowTranslationModal(false)} 
+      <TranslationModal
+        isOpen={showTranslationModal}
+        onClose={() => setShowTranslationModal(false)}
       />
     </motion.div>
   );

@@ -26,7 +26,7 @@ import Link from "next/link";
 import { signOut } from "firebase/auth";
 import { auth, db, storage } from "@/lib/firebase";
 import { useRouter, usePathname } from "next/navigation";
-import Joyride from "react-joyride";
+// import Joyride from "react-joyride";
 import { TranslationModal } from "@/components/TranslationModal";
 import { useLanguage } from "@/context/LanguageContext";
 import NotificationsPopup from "@/components/NotificationsPopup";
@@ -65,7 +65,7 @@ export function SideNav({
   onMarkAsRead,
 }) {
   const [isMobile, setIsMobile] = useState(false);
-  const [runSidebarTour, setRunSidebarTour] = useState(false);
+  // const [runSidebarTour, setRunSidebarTour] = useState(false);
   const [showTranslationModal, setShowTranslationModal] = useState(false);
   const [localNotifications, setLocalNotifications] = useState([]);
   const [ngoProfile, setNgoProfile] = useState(null);
@@ -205,76 +205,76 @@ export function SideNav({
     window.addEventListener("resize", checkMobile);
 
     // Listen for the event from DashboardPage to start sidebar tour
-    const handleStartSidebarTour = (event) => {
-      if (event.detail?.startTour) {
-        // Ensure sidebar is open before starting the tour
-        setIsOpen(true);
+    // const handleStartSidebarTour = (event) => {
+    //   if (event.detail?.startTour) {
+    //     // Ensure sidebar is open before starting the tour
+    //     setIsOpen(true);
 
-        // Wait a bit for the sidebar to fully expand
-        setTimeout(() => {
-          setRunSidebarTour(true);
-        }, 500);
-      }
-    };
+    //     // Wait a bit for the sidebar to fully expand
+    //     setTimeout(() => {
+    //       setRunSidebarTour(true);
+    //     }, 500);
+    //   }
+    // };
 
-    window.addEventListener("startSidebarTour", handleStartSidebarTour);
+    // window.addEventListener("startSidebarTour", handleStartSidebarTour);
 
     return () => {
       window.removeEventListener("resize", checkMobile);
-      window.removeEventListener("startSidebarTour", handleStartSidebarTour);
+      // window.removeEventListener("startSidebarTour", handleStartSidebarTour);
     };
   }, [setIsOpen]);
 
   // Also listen for reset tour events when the restart button is clicked
-  useEffect(() => {
-    const handleResetTour = () => {
-      // The sidebar tour will be started after the dashboard tour completes
-      // via the existing startSidebarTour event, so we don't need to do anything here
-      setRunSidebarTour(false);
-    };
+  // useEffect(() => {
+  //   const handleResetTour = () => {
+  //     // The sidebar tour will be started after the dashboard tour completes
+  //     // via the existing startSidebarTour event, so we don't need to do anything here
+  //     setRunSidebarTour(false);
+  //   };
 
-    window.addEventListener("resetTours", handleResetTour);
-    return () => {
-      window.removeEventListener("resetTours", handleResetTour);
-    };
-  }, []);
+  //   window.addEventListener("resetTours", handleResetTour);
+  //   return () => {
+  //     window.removeEventListener("resetTours", handleResetTour);
+  //   };
+  // }, []);
 
   // Add custom CSS for tour highlighting when tour is active
-  useEffect(() => {
-    if (runSidebarTour) {
-      // Add CSS for tour highlighting
-      const styleEl = document.createElement("style");
-      styleEl.id = "sidebar-tour-highlighting-styles";
-      styleEl.innerHTML = `
-        .react-joyride__spotlight {
-          border: 3px solid #1CAC78 !important;
-          box-shadow: 0 0 15px rgba(28, 172, 120, 0.5) !important;
-        }
-        
-        /* Add highlight to specific nav sections during the tour */
-        .main-nav-section.spotlight-active,
-        .management-nav-section.spotlight-active,
-        .finance-nav-section.spotlight-active,
-        .product-nav-section.spotlight-active,
-        .bottom-nav-section.spotlight-active {
-          background-color: rgba(28, 172, 120, 0.1);
-          border-radius: 8px;
-          transition: background-color 0.3s ease;
-        }
-      `;
-      document.head.appendChild(styleEl);
+  // useEffect(() => {
+  //   if (runSidebarTour) {
+  //     // Add CSS for tour highlighting
+  //     const styleEl = document.createElement("style");
+  //     styleEl.id = "sidebar-tour-highlighting-styles";
+  //     styleEl.innerHTML = `
+  //       .react-joyride__spotlight {
+  //         border: 3px solid #1CAC78 !important;
+  //         box-shadow: 0 0 15px rgba(28, 172, 120, 0.5) !important;
+  //       }
 
-      return () => {
-        // Clean up when tour ends
-        const styleElement = document.getElementById(
-          "sidebar-tour-highlighting-styles"
-        );
-        if (styleElement) {
-          styleElement.remove();
-        }
-      };
-    }
-  }, [runSidebarTour]);
+  //       /* Add highlight to specific nav sections during the tour */
+  //       .main-nav-section.spotlight-active,
+  //       .management-nav-section.spotlight-active,
+  //       .finance-nav-section.spotlight-active,
+  //       .product-nav-section.spotlight-active,
+  //       .bottom-nav-section.spotlight-active {
+  //         background-color: rgba(28, 172, 120, 0.1);
+  //         border-radius: 8px;
+  //         transition: background-color 0.3s ease;
+  //       }
+  //     `;
+  //     document.head.appendChild(styleEl);
+
+  //     return () => {
+  //       // Clean up when tour ends
+  //       const styleElement = document.getElementById(
+  //         "sidebar-tour-highlighting-styles"
+  //       );
+  //       if (styleElement) {
+  //         styleElement.remove();
+  //       }
+  //     };
+  //   }
+  // }, [runSidebarTour]);
 
   const toggleSideNav = () => setIsOpen(!isOpen);
 
@@ -663,7 +663,11 @@ export function SideNav({
                     }}
                   >
                     <FileText className="h-6 w-6" />
-                    {isOpen && <span className="ml-3">{translations.chat_report || "Chat with PDF"}</span>}
+                    {isOpen && (
+                      <span className="ml-3">
+                        {translations.chat_report || "Chat with PDF"}
+                      </span>
+                    )}
                   </Link>
                 </li>
               </ul>
@@ -793,7 +797,7 @@ export function SideNav({
       />
 
       {/* Sidebar Tour */}
-      <Joyride
+      {/* <Joyride
         steps={generateTourSteps()}
         run={runSidebarTour}
         continuous
@@ -828,7 +832,7 @@ export function SideNav({
           },
         }}
         callback={handleTourCallback}
-      />
+      /> */}
     </>
   );
 }
