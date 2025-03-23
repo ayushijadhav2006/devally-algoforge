@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
 import { auth, db } from "@/lib/firebase";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { initFirebaseAdmin } from "@/lib/firebase-admin";
 import {
   doc,
   getDoc,
@@ -13,10 +10,8 @@ import {
   where,
   getDocs,
   writeBatch,
+  increment,
 } from "firebase/firestore";
-
-// Initialize Firebase Admin if not already initialized
-initFirebaseAdmin();
 
 /**
  * API endpoint to add notifications
@@ -39,9 +34,9 @@ export async function POST(request) {
 
     const idToken = authorization.split("Bearer ")[1];
 
-    // Verify the token using Firebase Admin
-    const decodedToken = await getAuth().verifyIdToken(idToken);
-    const adminUid = decodedToken.uid;
+    // Verify the token using Firebase Client SDK
+    const userCredential = await auth.signInWithCustomToken(idToken);
+    const adminUid = userCredential.user.uid;
 
     // Verify admin rights
     const adminRef = doc(db, "users", adminUid);
@@ -162,7 +157,7 @@ export async function POST(request) {
         const notificationsRef = doc(db, "notifications", userId);
         batch.update(notificationsRef, {
           notifications: arrayUnion(notification),
-          unreadCount: FieldValue.increment(1),
+          unreadCount: increment(1),
         });
       });
 
@@ -200,7 +195,7 @@ export async function POST(request) {
         const notificationsRef = doc(db, "notifications", memberId);
         batch.update(notificationsRef, {
           notifications: arrayUnion(notification),
-          unreadCount: FieldValue.increment(1),
+          unreadCount: increment(1),
         });
       });
 
@@ -215,7 +210,7 @@ export async function POST(request) {
           const notificationsRef = doc(db, "notifications", ownerId);
           batch.update(notificationsRef, {
             notifications: arrayUnion(notification),
-            unreadCount: FieldValue.increment(1),
+            unreadCount: increment(1),
           });
         }
       }
@@ -250,7 +245,7 @@ export async function POST(request) {
         const notificationsRef = doc(db, "notifications", userId);
         batch.update(notificationsRef, {
           notifications: arrayUnion(notification),
-          unreadCount: FieldValue.increment(1),
+          unreadCount: increment(1),
         });
       });
 
@@ -291,9 +286,9 @@ export async function PUT(request) {
 
     const idToken = authorization.split("Bearer ")[1];
 
-    // Verify the token
-    const decodedToken = await getAuth().verifyIdToken(idToken);
-    const uid = decodedToken.uid;
+    // Verify the token using Firebase Client SDK
+    const userCredential = await auth.signInWithCustomToken(idToken);
+    const uid = userCredential.user.uid;
 
     // Get request data
     const { notificationIds, markAllRead = false } = await request.json();

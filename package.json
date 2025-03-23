@@ -53,6 +53,7 @@
     "ethers": "^5.7.2",
     "file-saver": "^2.0.5",
     "firebase": "^11.2.0",
+    "firebase-admin": "^13.2.0",
     "framer-motion": "^12.5.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.0",
