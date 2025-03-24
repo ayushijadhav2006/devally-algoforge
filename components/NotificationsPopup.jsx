@@ -198,7 +198,6 @@ export default function NotificationsPopup({
               >
                 Unread {unreadCount > 0 && `(${unreadCount})`}
               </button>
-              \]
             </div>
 
             {/* Notifications list */}

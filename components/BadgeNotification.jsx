@@ -47,7 +47,7 @@ export function BadgeNotification({ badges, onClose }) {
         initial={{ opacity: 0, y: -50, scale: 0.9 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, scale: 0.9 }}
-        className="fixed top-5 right-5 z-50 max-w-sm bg-white dark:bg-gray-800 rounded-xl shadow-xl overflow-hidden"
+        className="fixed top-5 right-5 z-50 max-w-sm bg-white rounded-xl shadow-xl overflow-hidden"
       >
         <div className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 h-2" />
         <div className="p-4">

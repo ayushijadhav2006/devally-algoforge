@@ -228,11 +228,11 @@ export default function Home() {
   // If there's an error, show a simple fallback
   if (hasError) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center bg-white dark:bg-black">
-        <p className="text-3xl md:text-3xl font-bold text-black dark:text-white">
+      <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center bg-white">
+        <p className="text-3xl md:text-3xl font-bold text-black">
           Welcome to SMILE-SHARE
         </p>
-        <p className="mt-4 text-xl md:text-2xl text-muted-foreground dark:text-gray-300">
+        <p className="mt-4 text-xl md:text-2xl text-muted-foreground">
           Streamline your NGO management process with our powerful platform
         </p>
         <div className="mt-8 flex gap-4">
@@ -244,7 +244,7 @@ export default function Home() {
           </Link>
           <Link
             href="/ngo"
-            className="rounded-lg border px-6 py-3 text-lg md:text-xl font-medium text-black dark:text-white hover:bg-accent/50"
+            className="rounded-lg border px-6 py-3 text-lg md:text-xl font-medium text-black hover:bg-accent/50"
           >
             Explore NGOs
           </Link>
@@ -254,7 +254,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-black text-black overflow-x-hidden transition-colors duration-300">
+    <div className="min-h-screen bg-whit text-black overflow-x-hidden transition-colors duration-300">
       {/* Apply custom animations with proper syntax */}
       <style dangerouslySetInnerHTML={{ __html: animationStyles }} />
 
@@ -291,7 +291,7 @@ export default function Home() {
               {/* Acrylic Box using your specific styling */}
               <motion.div
                 className="absolute inset-0 rounded-xl
-                  bg-white/15 dark:bg-black/20
+                  bg-white/15
                   backdrop-filter backdrop-blur-[2.5px]
                   border border-white/20"
                 initial={{ opacity: 0 }}
@@ -310,7 +310,7 @@ export default function Home() {
                   transition={{ duration: 0.8, delay: 0.2 }}
                   className="text-5xl md:text-7xl lg:text-7xl font-bold mb-6 tracking-tight text-left"
                 >
-                  <span className="text-black dark:text-white">Welcome to</span>
+                  <span className="text-black">Welcome to</span>
                   <br />
                   <span className="bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 to-blue-500">
                     SMILE-SHARE
@@ -321,7 +321,7 @@ export default function Home() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.8, delay: 0.4 }}
-                  className="text-xl md:text-2xl lg:text-2xl text-muted-foreground dark:text-gray-300 mb-10 text-left max-w-xl"
+                  className="text-xl md:text-2xl lg:text-2xl text-muted-foreground mb-10 text-left max-w-xl"
                 >
                   Streamline your NGO management process with our powerful
                   platform
@@ -372,7 +372,7 @@ export default function Home() {
                 {/* Circular frame with acrylic effect */}
                 <div
                   className="absolute inset-[4px] rounded-full 
-                  bg-white/15 dark:bg-black/20
+                  bg-white/15
                   backdrop-filter backdrop-blur-[2.5px]
                   border border-white/20
                   overflow-hidden"
@@ -480,15 +480,15 @@ export default function Home() {
       </div>
 
       {/* SVG Mask Effect Section */}
-      <section className="relative bg-white dark:bg-black border-t border-border/20 py-16 w-full">
+      <section className="relative bg-white border-t border-border/20 py-16 w-full">
         <div className="container mx-auto px-4">
           <MaskContainer
             revealText={
               <div className="max-w-4xl mx-auto text-center">
-                <h2 className="text-4xl md:text-5xl font-bold mb-6 text-black dark:text-white">
+                <h2 className="text-4xl md:text-5xl font-bold mb-6 text-black">
                   Empowering Communities Together
                 </h2>
-                <p className="text-xl text-muted-foreground dark:text-gray-300 max-w-2xl mx-auto">
+                <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                   Hover or move your cursor over this section to reveal our
                   mission and impact.
                 </p>
@@ -497,7 +497,7 @@ export default function Home() {
             className="h-[500px] my-10 rounded-2xl overflow-hidden w-full"
             revealSize={500}
           >
-            <div className="relative bg-black dark:bg-white p-10 rounded-xl max-w-5xl mx-auto w-full">
+            <div className="relative bg-black p-10 rounded-xl max-w-5xl mx-auto w-full">
               {/* Background image */}
               <div className="absolute inset-0 rounded-xl overflow-hidden">
                 <Image
@@ -509,10 +509,10 @@ export default function Home() {
               </div>
 
               <div className="relative z-10">
-                <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white dark:text-black">
+                <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white">
                   Making a Difference
                 </h2>
-                <p className="text-xl text-white/90 dark:text-black/90 max-w-2xl mb-8">
+                <p className="text-xl text-white/90 max-w-2xl mb-8">
                   Our platform connects NGOs, volunteers, and communities to
                   create meaningful change and sustainable impact across various
                   social and environmental initiatives.
@@ -520,7 +520,7 @@ export default function Home() {
                 <div className="flex flex-wrap gap-4">
                   <Link
                     href="/about"
-                    className="px-6 py-3 rounded-lg text-lg bg-white text-black dark:bg-black dark:text-white font-medium transition-transform hover:scale-105"
+                    className="px-6 py-3 rounded-lg text-lg bg-white text-black font-medium transition-transform hover:scale-105"
                   >
                     Learn More
                   </Link>
@@ -538,7 +538,7 @@ export default function Home() {
       </section>
 
       {/* Testimonials Section */}
-      <section className="py-20 bg-slate-50 dark:bg-slate-900">
+      <section className="py-20 bg-slate-50">
         <div className="container mx-auto px-4">
           <motion.div
             className="text-center mb-16"
@@ -583,7 +583,7 @@ export default function Home() {
       {/* Features Section */}
       <div
         ref={featuresRef}
-        className="relative bg-white dark:bg-black py-16 z-10 transition-colors duration-300"
+        className="relative bg-white py-16 z-10 transition-colors duration-300"
       >
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -595,15 +595,15 @@ export default function Home() {
         >
           {/* Decorative lines */}
           <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-40 h-40">
-            <div className="absolute top-0 left-1/2 w-[1px] h-20 bg-purple-500/20 dark:bg-purple-400/20"></div>
-            <div className="absolute bottom-0 left-1/2 w-[1px] h-20 bg-purple-500/20 dark:bg-purple-400/20"></div>
-            <div className="absolute left-0 top-1/2 h-[1px] w-20 bg-purple-500/20 dark:bg-purple-400/20"></div>
-            <div className="absolute right-0 top-1/2 h-[1px] w-20 bg-purple-500/20 dark:bg-purple-400/20"></div>
+            <div className="absolute top-0 left-1/2 w-[1px] h-20 bg-purple-500/20"></div>
+            <div className="absolute bottom-0 left-1/2 w-[1px] h-20 bg-purple-500/20"></div>
+            <div className="absolute left-0 top-1/2 h-[1px] w-20 bg-purple-500/20"></div>
+            <div className="absolute right-0 top-1/2 h-[1px] w-20 bg-purple-500/20"></div>
           </div>
 
           {/* Button with spinning border */}
           <div className="relative inline-flex h-12 overflow-hidden rounded-full p-[1px] focus:outline-none bg-primary/20">
-            <span className="inline-flex h-full w-full items-center justify-center rounded-full bg-white dark:bg-black px-8 py-1 text-lg font-medium text-black dark:text-white">
+            <span className="inline-flex h-full w-full items-center justify-center rounded-full bg-white px-8 py-1 text-lg font-medium text-black">
               Features
             </span>
           </div>
@@ -618,10 +618,10 @@ export default function Home() {
           className="container mx-auto px-4"
         >
           <div className="text-center max-w-3xl mx-auto mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-black dark:text-white">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-black">
               Powerful Features to Maximize Impact
             </h2>
-            <p className="text-lg text-muted-foreground dark:text-gray-300">
+            <p className="text-lg text-muted-foreground">
               Our platform provides all the tools you need to manage your NGO
               effectively, connect with volunteers, and make a real difference
               in your community.
@@ -647,7 +647,7 @@ export default function Home() {
                     cta={feature.cta}
                     className="h-full group hover:shadow-lg transition-all duration-300"
                     background={
-                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/20 opacity-50 dark:from-primary/10 dark:to-primary/20 group-hover:opacity-70 transition-opacity duration-300" />
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/20 opacity-50 group-hover:opacity-70 transition-opacity duration-300" />
                     }
                   />
                 </motion.div>
@@ -673,15 +673,15 @@ export default function Home() {
           >
             {/* Decorative lines */}
             <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-40 h-40">
-              <div className="absolute top-0 left-1/2 w-[1px] h-20 bg-purple-500/20 dark:bg-purple-400/20"></div>
-              <div className="absolute bottom-0 left-1/2 w-[1px] h-20 bg-purple-500/20 dark:bg-purple-400/20"></div>
-              <div className="absolute left-0 top-1/2 h-[1px] w-20 bg-purple-500/20 dark:bg-purple-400/20"></div>
-              <div className="absolute right-0 top-1/2 h-[1px] w-20 bg-purple-500/20 dark:bg-purple-400/20"></div>
+              <div className="absolute top-0 left-1/2 w-[1px] h-20 bg-purple-500/20"></div>
+              <div className="absolute bottom-0 left-1/2 w-[1px] h-20 bg-purple-500/20"></div>
+              <div className="absolute left-0 top-1/2 h-[1px] w-20 bg-purple-500/20"></div>
+              <div className="absolute right-0 top-1/2 h-[1px] w-20 bg-purple-500/20"></div>
             </div>
 
             {/* Button with spinning border */}
             <div className="relative inline-flex h-12 overflow-hidden rounded-full p-[1px] focus:outline-none bg-primary/20">
-              <span className="inline-flex h-full w-full items-center justify-center rounded-full bg-white dark:bg-black px-8 py-1 text-lg font-medium text-black dark:text-white">
+              <span className="inline-flex h-full w-full items-center justify-center rounded-full bg-white px-8 py-1 text-lg font-medium text-black">
                 Why Choose Us?
               </span>
             </div>
@@ -728,7 +728,7 @@ export default function Home() {
                   <AccordionTrigger className="text-left py-6 group">
                     <div className="flex items-center gap-4">
                       <motion.div
-                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors dark:bg-primary/20 dark:group-hover:bg-primary/30"
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors"
                         whileHover={{ scale: 1.1, rotate: 5 }}
                         whileTap={{ scale: 0.95 }}
                         transition={{
@@ -740,7 +740,7 @@ export default function Home() {
                         <span className="font-semibold">{index + 1}</span>
                       </motion.div>
                       <motion.span
-                        className="text-lg font-semibold group-hover:text-primary transition-colors dark:text-white"
+                        className="text-lg font-semibold group-hover:text-primary transition-colors "
                         whileHover={{ x: 5 }}
                         transition={{ type: "spring", stiffness: 300 }}
                       >
@@ -748,7 +748,7 @@ export default function Home() {
                       </motion.span>
                     </div>
                   </AccordionTrigger>
-                  <AccordionContent className="pl-14 text-muted-foreground dark:text-gray-300 text-base leading-relaxed">
+                  <AccordionContent className="pl-14 text-muted-foreground text-base leading-relaxed">
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
@@ -784,12 +784,12 @@ export default function Home() {
             opacity={0.5}
           />
         </div>
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/30 via-purple-500/30 to-pink-500/30 dark:from-indigo-500/10 dark:via-purple-500/10 dark:to-pink-500/10" />
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/30 via-purple-500/30 to-pink-500/30" />
 
         <div className="container relative z-10 mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             <motion.h2
-              className="text-4xl md:text-5xl font-bold mb-6 text-black dark:text-white"
+              className="text-4xl md:text-5xl font-bold mb-6 text-black"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{

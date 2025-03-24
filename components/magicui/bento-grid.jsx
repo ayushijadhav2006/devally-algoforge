@@ -34,7 +34,7 @@ const BentoCard = ({
       // light styles
       "bg-white/70 backdrop-blur-sm [box-shadow:0_0_0_1px_rgba(0,0,0,.03),0_2px_4px_rgba(0,0,0,.05),0_12px_24px_rgba(0,0,0,.05)]",
       // dark styles
-      "transform-gpu dark:bg-white/60 dark:backdrop-blur-sm dark:[border:1px_solid_rgba(255,255,255,.1)] dark:[box-shadow:0_-20px_80px_-20px_#ffffff1f_inset]",
+      "transform-gpu",
       // hover styles
       "transition-all duration-300 hover:shadow-xl",
       className
@@ -45,13 +45,9 @@ const BentoCard = ({
     <div className="pointer-events-none z-10 flex transform-gpu flex-col gap-2 p-6 transition-all duration-300 group-hover:-translate-y-10">
       <div className="flex items-center gap-3">
         <Icon className="h-10 w-10 text-primary origin-left transform-gpu transition-all duration-300 ease-in-out group-hover:scale-110" />
-        <h3 className="text-2xl font-semibold text-black dark:text-white">
-          {name}
-        </h3>
+        <h3 className="text-2xl font-semibold text-black">{name}</h3>
       </div>
-      <p className="text-muted-foreground dark:text-gray-300 text-base">
-        {description}
-      </p>
+      <p className="text-muted-foreground text-base">{description}</p>
     </div>
 
     <div
@@ -71,7 +67,7 @@ const BentoCard = ({
         </a>
       </Button>
     </div>
-    <div className="pointer-events-none absolute inset-0 transform-gpu transition-all duration-300 group-hover:bg-black/[.03] group-hover:dark:bg-neutral-800/10" />
+    <div className="pointer-events-none absolute inset-0 transform-gpu transition-all duration-300 group-hover:bg-black/[.03] " />
   </div>
 );
 

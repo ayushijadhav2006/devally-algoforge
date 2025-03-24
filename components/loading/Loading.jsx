@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 const Loading = () => {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-white dark:bg-black">
+    <div className="flex items-center justify-center min-h-screen bg-white">
       <motion.div
         className="flex flex-col items-center"
         initial={{ opacity: 0 }}
@@ -33,7 +33,7 @@ const Loading = () => {
             ></path>
           </svg>
         </div>
-        <p className="mt-4 text-black dark:text-white font-medium">
+        <p className="mt-4 text-black font-medium">
           Loading...
         </p>
         <p className="text-sm text-muted-foreground mt-2">

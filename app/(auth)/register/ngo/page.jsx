@@ -182,11 +182,9 @@ const NgoRegistrationPage = () => {
   };
 
   return (
-    <div className="max-w-md w-full mx-auto rounded-none md:rounded-2xl p-4 md:p-8 bg-white dark:bg-black shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(255,255,255,0.1)] transform hover:translate-y-[-2px] transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800">
-      <h2 className="font-bold text-xl text-neutral-800 dark:text-neutral-200">
-        NGO Registration
-      </h2>
-      <p className="text-neutral-600 dark:text-neutral-400 text-sm mt-2">
+    <div className="max-w-md w-full mx-auto rounded-none md:rounded-2xl p-4 md:p-8 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] transform hover:translate-y-[-2px] transition-all duration-300 ease-in-out border border-gray-200">
+      <h2 className="font-bold text-xl text-neutral-800">NGO Registration</h2>
+      <p className="text-neutral-600 text-sm mt-2">
         Get your NGO registered to access exclusive features!
       </p>
 
@@ -341,10 +339,7 @@ const NgoRegistrationPage = () => {
             checked={ndaAccepted}
             onChange={() => setNdaAccepted(!ndaAccepted)}
           />
-          <label
-            htmlFor="nda"
-            className="text-sm text-gray-700 dark:text-gray-300"
-          >
+          <label htmlFor="nda" className="text-sm text-gray-700">
             I Agree to the{" "}
             <button
               type="button"
@@ -395,21 +390,21 @@ const NgoRegistrationPage = () => {
           <BottomGradient />
         </button>
 
-        <div className="bg-gradient-to-r from-transparent via-neutral-300 dark:via-neutral-700 to-transparent my-8 h-[1px] w-full" />
+        <div className="bg-gradient-to-r from-transparent via-neutral-300 to-transparent my-8 h-[1px] w-full" />
 
         <div className="flex flex-col space-y-4">
           <Link
             href="/register"
-            className="text-sm text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 text-center"
+            className="text-sm text-neutral-700 hover:text-neutral-900 text-center"
           >
             Register as User
           </Link>
 
           <Link
             href="/login"
-            className="relative group/btn flex space-x-2 items-center justify-center px-4 w-full text-black rounded-md h-10 font-medium shadow-input bg-gray-50 dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_var(--neutral-800)]"
+            className="relative group/btn flex space-x-2 items-center justify-center px-4 w-full text-black rounded-md h-10 font-medium shadow-input bg-gray-50"
           >
-            <span className="text-neutral-700 dark:text-neutral-300 text-sm">
+            <span className="text-neutral-700 text-sm">
               Already have an organization account? Login
             </span>
             <BottomGradient />

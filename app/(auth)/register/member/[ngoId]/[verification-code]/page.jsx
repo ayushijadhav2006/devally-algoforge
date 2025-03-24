@@ -130,7 +130,7 @@ const MemberVerificationPage = () => {
   };
 
   return (
-    <div className="max-w-md w-full mx-auto rounded-none md:rounded-2xl p-4 md:p-8 bg-white dark:bg-black shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(255,255,255,0.1)] transform hover:translate-y-[-2px] transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800">
+    <div className="max-w-md w-full mx-auto rounded-none md:rounded-2xl p-4 md:p-8 bg-white transform hover:translate-y-[-2px] transition-all duration-300 ease-in-out border border-gray-200">
       <div className="flex flex-col items-center mb-6">
         <a
           href="https://yourorganizationwebsite.com/"
@@ -145,10 +145,10 @@ const MemberVerificationPage = () => {
             className="w-8 mb-4"
           />
         </a>
-        <h2 className="font-bold text-xl text-neutral-800 dark:text-neutral-200">
+        <h2 className="font-bold text-xl text-neutral-800">
           Register as a Member
         </h2>
-        <p className="text-neutral-600 dark:text-neutral-400 text-sm mt-2">
+        <p className="text-neutral-600 text-sm mt-2">
           Welcome! Complete your registration to join this organization.
         </p>
       </div>
@@ -174,7 +174,7 @@ const MemberVerificationPage = () => {
         {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
 
         <button
-          className="bg-gradient-to-br relative group/btn from-black dark:from-zinc-900 dark:to-zinc-900 to-neutral-600 block dark:bg-zinc-800 w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset]"
+          className="bg-gradient-to-br relative group/btn from-black to-neutral-600 block w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset]"
           type="submit"
           disabled={loading}
         >
@@ -182,12 +182,12 @@ const MemberVerificationPage = () => {
           <BottomGradient />
         </button>
 
-        <div className="bg-gradient-to-r from-transparent via-neutral-300 dark:via-neutral-700 to-transparent my-8 h-[1px] w-full" />
+        <div className="bg-gradient-to-r from-transparent via-neutral-300 to-transparent my-8 h-[1px] w-full" />
 
         <div className="flex justify-center">
           <Link
             href="/sign-in"
-            className="text-sm text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100"
+            className="text-sm text-neutral-700 hover:text-neutral-900"
           >
             Already have an account?{" "}
             <span className="font-semibold">Sign In</span>

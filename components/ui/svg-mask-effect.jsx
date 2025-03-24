@@ -8,7 +8,7 @@ export const MaskContainer = ({
   revealText,
   size = 10,
   revealSize = 600,
-  className
+  className,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: null, y: null });
@@ -26,11 +26,14 @@ export const MaskContainer = ({
     }
     return () => {
       if (containerRef.current) {
-        containerRef.current.removeEventListener("mousemove", updateMousePosition);
+        containerRef.current.removeEventListener(
+          "mousemove",
+          updateMousePosition
+        );
       }
     };
   }, []);
-  
+
   let maskSize = isHovered ? revealSize : size;
 
   return (
@@ -42,7 +45,7 @@ export const MaskContainer = ({
       }}
     >
       <motion.div
-        className="absolute flex h-full w-full items-center justify-center bg-black dark:bg-white [mask-image:url(/mask.svg)] [mask-repeat:no-repeat] [mask-size:40px]"
+        className="absolute flex h-full w-full items-center justify-center bg-black [mask-image:url(/mask.svg)] [mask-repeat:no-repeat] [mask-size:40px]"
         animate={{
           maskPosition: `${mousePosition.x - maskSize / 2}px ${
             mousePosition.y - maskSize / 2
@@ -54,7 +57,7 @@ export const MaskContainer = ({
           maskPosition: { duration: 0.2, ease: "linear" },
         }}
       >
-        <div className="absolute inset-0 z-0 h-full w-full bg-black/80 dark:bg-white/80" />
+        <div className="absolute inset-0 z-0 h-full w-full bg-black/80" />
         <div
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}

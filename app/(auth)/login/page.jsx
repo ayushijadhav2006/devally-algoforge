@@ -46,7 +46,7 @@ export default function LoginPage() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [phoneHint, setPhoneHint] = useState("");
   const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
-  
+
   // TOTP states
   const [showTOTPDialog, setShowTOTPDialog] = useState(false);
   const [userTOTPInfo, setUserTOTPInfo] = useState(null);
@@ -81,19 +81,19 @@ export default function LoginPage() {
             try {
               // First check users collection
               let userDoc = await getDoc(doc(db, "users", uid));
-              
+
               // If not found in users, check ngo collection
               if (!userDoc.exists()) {
                 userDoc = await getDoc(doc(db, "ngo", uid));
               }
-              
+
               if (userDoc.exists()) {
                 const userData = userDoc.data();
                 if (userData.mfaType === "totp" && userData.totpSecret) {
                   setUserTOTPInfo({
                     totpSecret: userData.totpSecret,
                     email: email,
-                    password: password
+                    password: password,
                   });
                   setShowTOTPDialog(true);
                   setLoading(false);
@@ -233,8 +233,11 @@ export default function LoginPage() {
       }
 
       // Verify the TOTP code
-      const isValid = authenticator.check(verificationCode, userTOTPInfo.totpSecret);
-      
+      const isValid = authenticator.check(
+        verificationCode,
+        userTOTPInfo.totpSecret
+      );
+
       if (!isValid) {
         throw new Error("Invalid verification code. Please try again.");
       }
@@ -244,13 +247,13 @@ export default function LoginPage() {
       try {
         // Use the stored credentials from when the user initially tried to log in
         const userCredential = await signInWithEmailAndPassword(
-          auth, 
-          userTOTPInfo.email, 
+          auth,
+          userTOTPInfo.email,
           userTOTPInfo.password
         );
-        
+
         console.log("TOTP verification successful, signed in:", userCredential);
-        
+
         // Close dialog and redirect
         setShowTOTPDialog(false);
         router.push("/dashboard");
@@ -275,11 +278,11 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="max-w-md w-full mx-auto rounded-none md:rounded-2xl p-4 md:p-8 bg-white dark:bg-black shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(255,255,255,0.1)] transform hover:translate-y-[-2px] transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800">
-      <h2 className="font-bold text-xl text-neutral-800 dark:text-neutral-200">
+    <div className="max-w-md w-full mx-auto rounded-none md:rounded-2xl p-4 md:p-8 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] transform hover:translate-y-[-2px] transition-all duration-300 ease-in-out border border-gray-200">
+      <h2 className="font-bold text-xl text-neutral-800">
         Welcome to Smile-Share
       </h2>
-      <p className="text-neutral-600 dark:text-neutral-400 text-sm mt-2">
+      <p className="text-neutral-600 text-sm mt-2">
         Please sign in to continue
       </p>
 
@@ -338,23 +341,21 @@ export default function LoginPage() {
           <BottomGradient />
         </button>
 
-        <div className="bg-gradient-to-r from-transparent via-neutral-300 dark:via-neutral-700 to-transparent my-8 h-[1px] w-full" />
+        <div className="bg-gradient-to-r from-transparent via-neutral-300 to-transparent my-8 h-[1px] w-full" />
 
         <div className="flex flex-col space-y-4">
           <Link
             href="/forgot"
-            className="text-sm text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-neutral-100 text-center"
+            className="text-sm text-neutral-700 hover:text-neutral-900 text-center"
           >
             Forgot Password?
           </Link>
 
           <Link
             href="/register"
-            className="relative group/btn flex space-x-2 items-center justify-center px-4 w-full text-black rounded-md h-10 font-medium shadow-input bg-gray-50 dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_var(--neutral-800)]"
+            className="relative group/btn flex space-x-2 items-center justify-center px-4 w-full text-black rounded-md h-10 font-medium shadow-input bg-gray-50"
           >
-            <span className="text-neutral-700 dark:text-neutral-300 text-sm">
-              Create new account
-            </span>
+            <span className="text-neutral-700 text-sm">Create new account</span>
             <BottomGradient />
           </Link>
         </div>
@@ -426,7 +427,10 @@ export default function LoginPage() {
       </Dialog>
 
       {/* TOTP Dialog */}
-      <Dialog open={showTOTPDialog} onOpenChange={(open) => !isVerifying && setShowTOTPDialog(open)}>
+      <Dialog
+        open={showTOTPDialog}
+        onOpenChange={(open) => !isVerifying && setShowTOTPDialog(open)}
+      >
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Two-Factor Authentication</DialogTitle>
@@ -445,9 +449,11 @@ export default function LoginPage() {
           <div className="grid gap-4 py-4">
             <div className="flex flex-col items-center justify-center mb-2 gap-2">
               <QrCode className="h-16 w-16 text-purple-500 opacity-30" />
-              <p className="text-sm font-medium text-center">Authenticator App</p>
+              <p className="text-sm font-medium text-center">
+                Authenticator App
+              </p>
             </div>
-            
+
             <div className="grid gap-2">
               <Label htmlFor="totp-code">Enter 6-digit code</Label>
               <Input
@@ -459,7 +465,7 @@ export default function LoginPage() {
                 value={verificationCode}
                 onChange={(e) => {
                   // Only allow digits
-                  const value = e.target.value.replace(/[^0-9]/g, '');
+                  const value = e.target.value.replace(/[^0-9]/g, "");
                   if (value.length <= 6) {
                     setVerificationCode(value);
                   }
@@ -468,10 +474,10 @@ export default function LoginPage() {
                 className="text-center font-mono text-lg tracking-widest"
               />
             </div>
-            
+
             <p className="text-sm text-gray-500 mt-1">
-              Open your authenticator app (like Google Authenticator, Authy, or Microsoft Authenticator) 
-              to get your verification code.
+              Open your authenticator app (like Google Authenticator, Authy, or
+              Microsoft Authenticator) to get your verification code.
             </p>
           </div>
 
