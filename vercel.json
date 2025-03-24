@@ -2,4 +2,4 @@
   "buildCommand": "npm install --platform=linux --arch=x64 sharp --legacy-peer-deps && next build",
   "installCommand": "npm install --legacy-peer-deps",
   "framework": "nextjs"
-} 
+}
