@@ -12,6 +12,13 @@ import {
   writeBatch,
   increment,
 } from "firebase/firestore";
+import {
+  sendNotificationToUser,
+  sendNotificationToRole,
+  sendNotificationToNGO,
+  sendNotificationToAll,
+} from "@/lib/notificationService";
+import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
 
 /**
  * API endpoint to add notifications
@@ -20,343 +27,126 @@ import {
  * - Adding notifications to multiple users by role (ngo, user, admin, etc.)
  * - Adding notifications to all users
  */
-export async function POST(request) {
+export async function POST(req) {
   try {
-    const { authorization } = request.headers;
-
-    // Verify authentication - require auth token for security
-    if (!authorization || !authorization.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Unauthorized - Missing or invalid token" },
-        { status: 401 }
-      );
+    const user = auth.currentUser;
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const idToken = authorization.split("Bearer ")[1];
-
-    // Verify the token using Firebase Client SDK
-    const userCredential = await auth.signInWithCustomToken(idToken);
-    const adminUid = userCredential.user.uid;
-
-    // Verify admin rights
-    const adminRef = doc(db, "users", adminUid);
-    const adminDoc = await getDoc(adminRef);
-
-    if (
-      !adminDoc.exists() ||
-      (adminDoc.data().role !== "admin" && !adminDoc.data().isSystemAdmin)
-    ) {
-      return NextResponse.json(
-        { error: "Forbidden - Requires admin privileges" },
-        { status: 403 }
-      );
+    // Check if user is admin
+    const userDoc = await getDoc(doc(db, "users", user.uid));
+    if (!userDoc.exists() || userDoc.data().role !== "admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Get the notification data from the request body
-    const requestData = await request.json();
-    const {
-      userId, // Optional: specific user ID
-      userRole, // Optional: target user role (ngo, user, admin)
-      ngoId, // Optional: for notifications to specific NGO members
-      title, // Required: notification title
-      message, // Required: notification message
-      type = "info", // Optional: notification type (info, warning, success, error)
-      link = null, // Optional: link to navigate when notification is clicked
-      allUsers = false, // Optional: send to all users
-    } = requestData;
+    const { userId, userRole, ngoId, type, customData, allUsers } =
+      await req.json();
 
     // Validate required fields
-    if (!title || !message) {
+    if (!type) {
       return NextResponse.json(
-        { error: "Missing required fields: title and message are required" },
+        { error: "Notification type is required" },
         { status: 400 }
       );
     }
 
-    // Require at least one target (userId, userRole, ngoId, or allUsers)
+    // Ensure at least one target is specified
     if (!userId && !userRole && !ngoId && !allUsers) {
       return NextResponse.json(
         {
           error:
-            "Missing required fields: specify at least one target (userId, userRole, ngoId, or allUsers)",
+            "At least one target (userId, userRole, ngoId, or allUsers) is required",
         },
         { status: 400 }
       );
     }
 
-    // Create the notification object
-    const notification = {
-      title,
-      message,
-      type,
-      link,
-      read: false,
-      timestamp: new Date(),
-      senderId: adminUid,
-    };
-
-    // Strategy 1: Send to a specific user
+    // Strategy 1: Send to specific user
     if (userId) {
-      // Check if the user exists
-      const userRef = doc(db, "users", userId);
-      const userDoc = await getDoc(userRef);
-
-      if (!userDoc.exists()) {
-        return NextResponse.json(
-          { error: `User with ID ${userId} not found` },
-          { status: 404 }
-        );
-      }
-
-      // Check if the user has a notifications document
-      const notificationsRef = doc(db, "notifications", userId);
-      const notificationsDoc = await getDoc(notificationsRef);
-
-      if (!notificationsDoc.exists()) {
-        // Create a new notifications document
-        await updateDoc(notificationsRef, {
-          notifications: [notification],
-          unreadCount: 1,
-        });
-      } else {
-        // Update the existing notifications document
-        await updateDoc(notificationsRef, {
-          notifications: arrayUnion(notification),
-          unreadCount: (notificationsDoc.data().unreadCount || 0) + 1,
-        });
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: `Notification sent to user ${userId}`,
-      });
+      await sendNotificationToUser(userId, type, customData);
     }
 
     // Strategy 2: Send to users by role
     if (userRole) {
-      const usersQuery = query(
-        collection(db, "users"),
-        where("type", "==", userRole)
-      );
-      const usersSnapshot = await getDocs(usersQuery);
-
-      if (usersSnapshot.empty) {
-        return NextResponse.json(
-          { error: `No users found with role ${userRole}` },
-          { status: 404 }
-        );
-      }
-
-      const batch = writeBatch(db);
-      const userIds = [];
-
-      usersSnapshot.forEach((userDoc) => {
-        const userId = userDoc.id;
-        userIds.push(userId);
-
-        const notificationsRef = doc(db, "notifications", userId);
-        batch.update(notificationsRef, {
-          notifications: arrayUnion(notification),
-          unreadCount: increment(1),
-        });
-      });
-
-      await batch.commit();
-
-      return NextResponse.json({
-        success: true,
-        message: `Notification sent to ${userIds.length} users with role ${userRole}`,
-        users: userIds,
-      });
+      await sendNotificationToRole(userRole, type, customData);
     }
 
     // Strategy 3: Send to NGO members
     if (ngoId) {
-      const membersQuery = query(
-        collection(db, "users"),
-        where("ngoId", "==", ngoId)
-      );
-      const membersSnapshot = await getDocs(membersQuery);
-
-      if (membersSnapshot.empty) {
-        return NextResponse.json(
-          { error: `No members found for NGO ${ngoId}` },
-          { status: 404 }
-        );
-      }
-
-      const batch = writeBatch(db);
-      const memberIds = [];
-
-      membersSnapshot.forEach((memberDoc) => {
-        const memberId = memberDoc.id;
-        memberIds.push(memberId);
-
-        const notificationsRef = doc(db, "notifications", memberId);
-        batch.update(notificationsRef, {
-          notifications: arrayUnion(notification),
-          unreadCount: increment(1),
-        });
-      });
-
-      // Also add to the NGO admin (owner)
-      const ngoRef = doc(db, "ngo", ngoId);
-      const ngoDoc = await getDoc(ngoRef);
-
-      if (ngoDoc.exists()) {
-        const ownerId = ngoDoc.data().ownerId;
-        if (ownerId && !memberIds.includes(ownerId)) {
-          memberIds.push(ownerId);
-          const notificationsRef = doc(db, "notifications", ownerId);
-          batch.update(notificationsRef, {
-            notifications: arrayUnion(notification),
-            unreadCount: increment(1),
-          });
-        }
-      }
-
-      await batch.commit();
-
-      return NextResponse.json({
-        success: true,
-        message: `Notification sent to ${memberIds.length} members of NGO ${ngoId}`,
-        members: memberIds,
-      });
+      await sendNotificationToNGO(ngoId, type, customData);
     }
 
     // Strategy 4: Send to all users
     if (allUsers) {
-      const usersSnapshot = await getDocs(collection(db, "users"));
-
-      if (usersSnapshot.empty) {
-        return NextResponse.json(
-          { error: "No users found in the system" },
-          { status: 404 }
-        );
-      }
-
-      const batch = writeBatch(db);
-      const userIds = [];
-
-      usersSnapshot.forEach((userDoc) => {
-        const userId = userDoc.id;
-        userIds.push(userId);
-
-        const notificationsRef = doc(db, "notifications", userId);
-        batch.update(notificationsRef, {
-          notifications: arrayUnion(notification),
-          unreadCount: increment(1),
-        });
-      });
-
-      await batch.commit();
-
-      return NextResponse.json({
-        success: true,
-        message: `Notification sent to all ${userIds.length} users`,
-        userCount: userIds.length,
-      });
+      await sendNotificationToAll(type, customData);
     }
 
-    return NextResponse.json(
-      { error: "Invalid request parameters" },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error in notifications API:", error);
+    console.error("Error sending notification:", error);
     return NextResponse.json(
-      { error: "Internal server error", details: error.message },
+      { error: "Failed to send notification" },
       { status: 500 }
     );
   }
 }
 
 // Endpoint to mark notifications as read
-export async function PUT(request) {
+export async function PUT(req) {
   try {
-    const { authorization } = request.headers;
-
-    // Verify authentication
-    if (!authorization || !authorization.startsWith("Bearer ")) {
-      return NextResponse.json(
-        { error: "Unauthorized - Missing or invalid token" },
-        { status: 401 }
-      );
+    const user = auth.currentUser;
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const idToken = authorization.split("Bearer ")[1];
+    const { notificationIndex, markAllRead } = await req.json();
 
-    // Verify the token using Firebase Client SDK
-    const userCredential = await auth.signInWithCustomToken(idToken);
-    const uid = userCredential.user.uid;
+    const userNotificationsRef = doc(db, "notifications", user.uid);
+    const userNotificationsDoc = await getDoc(userNotificationsRef);
 
-    // Get request data
-    const { notificationIds, markAllRead = false } = await request.json();
-
-    const notificationsRef = doc(db, "notifications", uid);
-    const notificationsDoc = await getDoc(notificationsRef);
-
-    if (!notificationsDoc.exists()) {
+    if (!userNotificationsDoc.exists()) {
       return NextResponse.json(
-        { error: "No notifications found for this user" },
+        { error: "No notifications found" },
         { status: 404 }
       );
     }
 
-    const notifications = notificationsDoc.data().notifications || [];
-    let unreadCount = notificationsDoc.data().unreadCount || 0;
+    const notifications = userNotificationsDoc.data().notifications || [];
+    const unreadCount = userNotificationsDoc.data().unreadCount || 0;
 
     if (markAllRead) {
-      // Mark all as read
+      // Mark all notifications as read
       const updatedNotifications = notifications.map((notification) => ({
         ...notification,
         read: true,
       }));
 
-      await updateDoc(notificationsRef, {
+      await updateDoc(userNotificationsRef, {
         notifications: updatedNotifications,
         unreadCount: 0,
       });
+    } else if (notificationIndex !== undefined && notificationIndex >= 0) {
+      // Mark specific notification as read
+      if (!notifications[notificationIndex]) {
+        return NextResponse.json(
+          { error: "Notification not found" },
+          { status: 404 }
+        );
+      }
 
-      return NextResponse.json({
-        success: true,
-        message: `Marked all notifications as read`,
+      notifications[notificationIndex].read = true;
+      await updateDoc(userNotificationsRef, {
+        notifications: notifications,
+        unreadCount: Math.max(0, unreadCount - 1),
       });
     }
 
-    if (
-      !notificationIds ||
-      !Array.isArray(notificationIds) ||
-      notificationIds.length === 0
-    ) {
-      return NextResponse.json(
-        { error: "Missing notificationIds or invalid format" },
-        { status: 400 }
-      );
-    }
-
-    // Mark specific notifications as read
-    const updatedNotifications = notifications.map((notification, index) => {
-      if (notificationIds.includes(index) && !notification.read) {
-        unreadCount = Math.max(0, unreadCount - 1);
-        return { ...notification, read: true };
-      }
-      return notification;
-    });
-
-    await updateDoc(notificationsRef, {
-      notifications: updatedNotifications,
-      unreadCount,
-    });
-
-    return NextResponse.json({
-      success: true,
-      message: `Marked ${notificationIds.length} notifications as read`,
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error marking notifications as read:", error);
+    console.error("Error marking notification as read:", error);
     return NextResponse.json(
-      { error: "Internal server error", details: error.message },
+      { error: "Failed to mark notification as read" },
       { status: 500 }
     );
   }

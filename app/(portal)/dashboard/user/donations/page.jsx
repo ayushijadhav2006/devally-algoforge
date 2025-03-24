@@ -1,7 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Download, FileText, BarChart, MessageCircle, Globe } from "lucide-react";
+import {
+  Download,
+  FileText,
+  BarChart,
+  MessageCircle,
+  Globe,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,10 +38,20 @@ import {
   query,
   where,
   orderBy,
+  setDoc,
+  updateDoc,
+  increment,
+  arrayUnion,
 } from "firebase/firestore";
 import Link from "next/link";
 import { useLanguage } from "@/context/LanguageContext";
 import { TranslationModal } from "@/components/TranslationModal";
+import {
+  sendNotificationToUser,
+  sendNotificationToNGO,
+} from "@/lib/notificationService";
+import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
+import toast from "react-hot-toast";
 
 export default function UserDonatePage() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -277,12 +293,16 @@ export default function UserDonatePage() {
         printWindow.document.close();
       } else {
         alert(
-          translations.allow_popups_message || "Please allow popups for this website to view and print tax receipts."
+          translations.allow_popups_message ||
+            "Please allow popups for this website to view and print tax receipts."
         );
       }
     } catch (error) {
       console.error("Error generating tax receipt:", error);
-      alert(translations.failed_receipt_generation || "Failed to generate tax receipt. Please try again later.");
+      alert(
+        translations.failed_receipt_generation ||
+          "Failed to generate tax receipt. Please try again later."
+      );
     } finally {
       setIsGenerating(false);
     }
@@ -351,12 +371,124 @@ export default function UserDonatePage() {
         printWindow.document.close();
       } else {
         alert(
-          translations.allow_popups_message || "Please allow popups for this website to view and print tax receipts."
+          translations.allow_popups_message ||
+            "Please allow popups for this website to view and print tax receipts."
         );
       }
     } catch (error) {
       console.error("Error generating individual receipt:", error);
-      alert(translations.failed_receipt_generation || "Failed to generate receipt. Please try again later.");
+      alert(
+        translations.failed_receipt_generation ||
+          "Failed to generate receipt. Please try again later."
+      );
+    }
+  };
+
+  const handleDonation = async (e) => {
+    e.preventDefault();
+    setIsProcessing(true);
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // Get NGO details
+      const ngoDoc = await getDoc(doc(db, "ngo", selectedNGO));
+      if (!ngoDoc.exists()) {
+        throw new Error("NGO not found");
+      }
+
+      const ngoData = ngoDoc.data();
+      const donationAmount = parseFloat(donationData.amount);
+
+      // Create donation record
+      const donationRef = doc(collection(db, "donations"));
+      const donationData = {
+        userId: user.uid,
+        ngoId: selectedNGO,
+        amount: donationAmount,
+        currency: "INR",
+        status: "processing",
+        timestamp: new Date(),
+        paymentMethod: "crypto",
+      };
+
+      await setDoc(donationRef, donationData);
+
+      // Send processing notification to user
+      await sendNotificationToUser(user.uid, "DONATION_PROCESSING", {
+        message: `Your donation of ₹${donationAmount} to ${ngoData.ngoName} is being processed`,
+      });
+
+      // Send notification to NGO
+      await sendNotificationToNGO(selectedNGO, "DONATION_RECEIVED", {
+        message: `A new donation of ₹${donationAmount} is being processed`,
+      });
+
+      // Simulate payment processing
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Update donation status
+      await updateDoc(donationRef, {
+        status: "completed",
+        completedAt: new Date(),
+      });
+
+      // Update NGO's total donations
+      await updateDoc(doc(db, "ngo", selectedNGO), {
+        totalDonations: increment(donationAmount),
+      });
+
+      // Update user's donation history
+      await updateDoc(doc(db, "users", user.uid), {
+        donatedTo: arrayUnion({
+          ngoId: selectedNGO,
+          amount: donationAmount,
+          timestamp: new Date(),
+        }),
+      });
+
+      // Send completion notification to user
+      await sendNotificationToUser(user.uid, "DONATION_COMPLETED", {
+        message: `Your donation of ₹${donationAmount} to ${ngoData.ngoName} has been completed successfully`,
+      });
+
+      // Send completion notification to NGO
+      await sendNotificationToNGO(selectedNGO, "DONATION_COMPLETED", {
+        message: `A donation of ₹${donationAmount} has been completed successfully`,
+      });
+
+      toast({
+        title: "Success",
+        description: "Donation completed successfully",
+        variant: "default",
+      });
+
+      // Reset form
+      setDonationData({
+        amount: "",
+        ngo: "",
+      });
+      setSelectedNGO("");
+    } catch (error) {
+      console.error("Error processing donation:", error);
+
+      // Send failure notification to user
+      if (auth.currentUser) {
+        await sendNotificationToUser(auth.currentUser.uid, "DONATION_FAILED", {
+          message:
+            "There was an issue processing your donation. Please try again.",
+        });
+      }
+
+      toast({
+        title: "Error",
+        description: "Failed to process donation",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -368,9 +500,11 @@ export default function UserDonatePage() {
       className="container mx-auto p-4 space-y-8"
     >
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">{translations.donations || "Donations"}</h1>
-        <Button 
-          variant="outline" 
+        <h1 className="text-3xl font-bold">
+          {translations.donations || "Donations"}
+        </h1>
+        <Button
+          variant="outline"
           className="flex items-center gap-2"
           onClick={() => setShowTranslationModal(true)}
         >
@@ -385,15 +519,21 @@ export default function UserDonatePage() {
             className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"
             role="status"
           >
-            <span className="sr-only">{translations.loading || "Loading..."}</span>
+            <span className="sr-only">
+              {translations.loading || "Loading..."}
+            </span>
           </div>
-          <p className="mt-2 text-gray-600">{translations.loading_donations || "Loading your donation data..."}</p>
+          <p className="mt-2 text-gray-600">
+            {translations.loading_donations || "Loading your donation data..."}
+          </p>
         </div>
       ) : (
         <>
           <Card>
             <CardHeader>
-              <CardTitle>{translations.donations_overview || "Donations Overview"}</CardTitle>
+              <CardTitle>
+                {translations.donations_overview || "Donations Overview"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -401,13 +541,19 @@ export default function UserDonatePage() {
                   <h3 className="text-2xl font-bold">
                     ₹{donationOverview.totalDonations}
                   </h3>
-                  <p className="text-gray-500">{translations.total_donations_made || "Total Donations Made"}</p>
+                  <p className="text-gray-500">
+                    {translations.total_donations_made ||
+                      "Total Donations Made"}
+                  </p>
                 </div>
                 <div className="text-center">
                   <h3 className="text-2xl font-bold">
                     {donationOverview.sponsoredEvents}
                   </h3>
-                  <p className="text-gray-500">{translations.total_ngos_supported || "Total NGOs Supported"}</p>
+                  <p className="text-gray-500">
+                    {translations.total_ngos_supported ||
+                      "Total NGOs Supported"}
+                  </p>
                 </div>
                 {/* <div className="text-center">
                   <h3 className="text-2xl font-bold">
@@ -423,9 +569,10 @@ export default function UserDonatePage() {
                   disabled={isGenerating || recentDonations.length === 0}
                 >
                   <Download className="w-4 h-4 mr-2" />
-                  {isGenerating 
-                    ? (translations.generating || "Generating...") 
-                    : (translations.download_tax_receipt || "Download Tax Receipt")}
+                  {isGenerating
+                    ? translations.generating || "Generating..."
+                    : translations.download_tax_receipt ||
+                      "Download Tax Receipt"}
                 </Button>
               </div>
             </CardContent>
@@ -434,7 +581,9 @@ export default function UserDonatePage() {
           {recentDonations.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>{translations.recent_donations || "Recent Donations"}</CardTitle>
+                <CardTitle>
+                  {translations.recent_donations || "Recent Donations"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -443,7 +592,9 @@ export default function UserDonatePage() {
                       <TableHead>{translations.ngo || "NGO"}</TableHead>
                       <TableHead>{translations.amount || "Amount"}</TableHead>
                       <TableHead>{translations.date || "Date"}</TableHead>
-                      <TableHead>{translations.payment_method || "Payment Method"}</TableHead>
+                      <TableHead>
+                        {translations.payment_method || "Payment Method"}
+                      </TableHead>
                       <TableHead>{translations.status || "Status"}</TableHead>
                       <TableHead>{translations.actions || "Actions"}</TableHead>
                     </TableRow>
@@ -456,7 +607,10 @@ export default function UserDonatePage() {
                         <TableCell>{donation.date}</TableCell>
                         <TableCell>{donation.method}</TableCell>
                         <TableCell>
-                          <Badge variant="default">{translations[donation.status.toLowerCase()] || donation.status}</Badge>
+                          <Badge variant="default">
+                            {translations[donation.status.toLowerCase()] ||
+                              donation.status}
+                          </Badge>
                         </TableCell>
                         <TableCell>
                           <Button
@@ -477,7 +631,10 @@ export default function UserDonatePage() {
           ) : (
             <Card>
               <CardContent className="text-center py-8">
-                <p>{translations.no_donations_yet || "You haven't made any donations yet."}</p>
+                <p>
+                  {translations.no_donations_yet ||
+                    "You haven't made any donations yet."}
+                </p>
               </CardContent>
             </Card>
           )}
@@ -493,9 +650,9 @@ export default function UserDonatePage() {
       )}
 
       {/* Translation Modal */}
-      <TranslationModal 
-        isOpen={showTranslationModal} 
-        onClose={() => setShowTranslationModal(false)} 
+      <TranslationModal
+        isOpen={showTranslationModal}
+        onClose={() => setShowTranslationModal(false)}
       />
     </motion.div>
   );

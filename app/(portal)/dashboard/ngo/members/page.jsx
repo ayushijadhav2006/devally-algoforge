@@ -46,6 +46,11 @@ import { v4 as uuidv4 } from "uuid";
 import toast from "react-hot-toast";
 import { Select } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
+import {
+  sendNotificationToUser,
+  sendNotificationToNGO,
+} from "@/lib/notificationService";
+import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
 
 export default function NGOMembersPage() {
   const [members, setMembers] = useState([]);
@@ -233,6 +238,143 @@ export default function NGOMembersPage() {
     } catch (error) {
       console.error("Error checking existing user:", error);
       return null;
+    }
+  };
+
+  const handleAddMember = async (email) => {
+    try {
+      const userDoc = await getDoc(doc(db, "users", email));
+      if (!userDoc.exists()) {
+        throw new Error("User not found");
+      }
+
+      const userData = userDoc.data();
+
+      // Check if user is already a member
+      if (userData.ngoId === ngoId) {
+        throw new Error("User is already a member of this NGO");
+      }
+
+      // Update user's NGO membership
+      await updateDoc(doc(db, "users", email), {
+        ngoId: ngoId,
+        role: "member",
+        joinedAt: new Date(),
+      });
+
+      // Send notification to the new member
+      await sendNotificationToUser(email, "NGO_MEMBER_ADDED", {
+        message: `You have been added as a member to ${ngoData.ngoName}`,
+        customData: {
+          ngoId,
+          ngoName: ngoData.ngoName,
+        },
+      });
+
+      // Send notification to NGO members
+      await sendNotificationToNGO(ngoId, "NGO_MEMBER_ADDED", {
+        message: `${userData.name} has been added as a new member`,
+        customData: {
+          userId: email,
+          userName: userData.name,
+        },
+      });
+
+      toast.success("Member added successfully");
+
+      // Refresh members list
+      fetchMembers();
+    } catch (error) {
+      console.error("Error adding member:", error);
+      toast.error(error.message);
+    }
+  };
+
+  const handleRemoveMember = async (userId) => {
+    try {
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (!userDoc.exists()) {
+        throw new Error("User not found");
+      }
+
+      const userData = userDoc.data();
+
+      // Update user's NGO membership
+      await updateDoc(doc(db, "users", userId), {
+        ngoId: null,
+        role: "user",
+        joinedAt: null,
+      });
+
+      // Send notification to the removed member
+      await sendNotificationToUser(userId, "NGO_MEMBER_REMOVED", {
+        message: `You have been removed from ${ngoData.ngoName}`,
+        customData: {
+          ngoId,
+          ngoName: ngoData.ngoName,
+        },
+      });
+
+      // Send notification to NGO members
+      await sendNotificationToNGO(ngoId, "NGO_MEMBER_REMOVED", {
+        message: `${userData.name} has been removed from the NGO`,
+        customData: {
+          userId,
+          userName: userData.name,
+        },
+      });
+
+      toast.success("Member removed successfully");
+
+      // Refresh members list
+      fetchMembers();
+    } catch (error) {
+      console.error("Error removing member:", error);
+      toast.error(error.message);
+    }
+  };
+
+  const handleUpdateMemberRole = async (userId, newRole) => {
+    try {
+      const userDoc = await getDoc(doc(db, "users", userId));
+      if (!userDoc.exists()) {
+        throw new Error("User not found");
+      }
+
+      const userData = userDoc.data();
+
+      // Update user's role
+      await updateDoc(doc(db, "users", userId), {
+        role: newRole,
+      });
+
+      // Send notification to the member
+      await sendNotificationToUser(userId, "NGO_ROLE_UPDATED", {
+        message: `Your role in ${ngoData.ngoName} has been updated to ${newRole}`,
+        customData: {
+          ngoId,
+          ngoName: ngoData.ngoName,
+          newRole,
+        },
+      });
+
+      // Send notification to NGO members
+      await sendNotificationToNGO(ngoId, "NGO_ROLE_UPDATED", {
+        message: `${userData.name}'s role has been updated to ${newRole}`,
+        customData: {
+          userId,
+          userName: userData.name,
+          newRole,
+        },
+      });
+
+      toast.success("Member role updated successfully");
+
+      // Refresh members list
+      fetchMembers();
+    } catch (error) {
+      console.error("Error updating member role:", error);
+      toast.error(error.message);
     }
   };
 

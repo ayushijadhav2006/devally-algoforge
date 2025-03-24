@@ -82,6 +82,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import SecurityInformation from "@/components/profile/user/SecurityInformation";
+import { sendNotificationToUser } from "@/lib/notificationService";
+import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
 
 export default function UserSettingsPage() {
   const { user } = useAuth();
@@ -307,51 +309,68 @@ export default function UserSettingsPage() {
     }
   };
 
-  const handleProfileUpdate = async () => {
-    if (!userId) return;
-
-    const profileUpdating = toast.loading("Updating profile...");
-
+  const handleProfileUpdate = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
     try {
-      // Upload profile image if there's a new one
-      let profileImageURL = null;
-      if (profileImage) {
-        profileImageURL = await uploadProfileImage();
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error("User not authenticated");
       }
 
-      const userDocRef = doc(db, "users", userId);
-      const updateData = {
+      const userRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userRef);
+
+      if (!userDoc.exists()) {
+        throw new Error("User document not found");
+      }
+
+      const currentData = userDoc.data();
+      const updatedData = {
         name: userProfile.name,
         phone: userProfile.phone,
         address: userProfile.address,
+        updatedAt: new Date(),
       };
 
-      // Only add profileImageURL to update data if we have a new URL or explicitly removed it
-      if (profileImageURL !== null) {
-        updateData.profileImageURL = profileImageURL;
-      } else if (profileImage === null && profileImageURL === null) {
-        // User removed the image
-        updateData.profileImageURL = null;
+      // Check if any fields have changed
+      const hasChanges = Object.keys(updatedData).some(
+        (key) => updatedData[key] !== currentData[key]
+      );
+
+      if (hasChanges) {
+        await updateDoc(userRef, updatedData);
+
+        // Send notification about profile update
+        await sendNotificationToUser(user.uid, "PROFILE_UPDATE", {
+          message: `Your profile has been updated with the following changes: ${Object.keys(
+            updatedData
+          )
+            .filter((key) => updatedData[key] !== currentData[key])
+            .join(", ")}`,
+        });
+
+        toast({
+          title: "Success",
+          description: "Profile updated successfully",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Info",
+          description: "No changes detected in profile",
+          variant: "default",
+        });
       }
-
-      await updateDoc(userDocRef, updateData);
-
-      // Reset the file input and clear the selected file
-      if (profileImage) {
-        setProfileImage(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = "";
-        }
-      }
-
-      toast.success("Profile updated successfully", {
-        id: profileUpdating,
-      });
     } catch (error) {
       console.error("Error updating profile:", error);
-      toast.error("Error updating profile", {
-        id: profileUpdating,
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 

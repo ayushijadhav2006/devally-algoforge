@@ -16,9 +16,22 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import toast from "react-hot-toast";
-import { doc, collection, setDoc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  collection,
+  setDoc,
+  getDoc,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  sendNotificationToUser,
+  sendNotificationToNGO,
+} from "@/lib/notificationService";
+import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
 
 const CashDonation = () => {
   const [amount, setAmount] = useState(0);
@@ -86,6 +99,35 @@ const CashDonation = () => {
 
 Donation Confirmation Link - ${window.location.origin}/donation-approvals/${donationApprovalId}`,
         }),
+      });
+
+      // Send notification to donor if they have a user account
+      try {
+        // First check if this email has a user account in the system
+        const usersQuery = query(
+          collection(db, "users"),
+          where("email", "==", donorEmail)
+        );
+        const userSnapshot = await getDocs(usersQuery);
+
+        if (!userSnapshot.empty) {
+          const donorUserId = userSnapshot.docs[0].id;
+          await sendNotificationToUser(donorUserId, "DONATION_PROCESSING", {
+            message: `Your cash donation of ₹${amount} to ${ngoName} is being processed. Thank you for your generosity!`,
+          });
+        }
+      } catch (notificationError) {
+        console.error("Error sending donor notification:", notificationError);
+        // Don't fail the whole operation if notification fails
+      }
+
+      // Send notification to NGO
+      await sendNotificationToNGO(ngoId, "DONATION_RECEIVED", {
+        message: `A new cash donation of ₹${amount} from ${donorName} is being processed`,
+        donorName: donorName,
+        donorEmail: donorEmail,
+        amount: amount,
+        donationType: "cash",
       });
 
       setAmount(0);

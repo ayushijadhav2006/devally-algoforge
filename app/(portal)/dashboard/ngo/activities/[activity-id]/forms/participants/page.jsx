@@ -11,6 +11,7 @@ import {
   where,
   arrayUnion,
   updateDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import { useParams } from "next/navigation";
 import React, { useEffect, useState } from "react";
@@ -30,6 +31,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import toast from "react-hot-toast";
+import { sendNotificationToUser, sendNotificationToNGO } from "@/lib/notificationService";
+import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
 
 const ParticipantsPage = () => {
   const [participants, setParticipants] = useState([]);
@@ -126,16 +129,40 @@ const ParticipantsPage = () => {
         return;
       }
 
+      // Get activity details for notification
+      const activityDoc = await getDoc(doc(db, "activities", activityId));
+      if (activityDoc.exists()) {
+        eventName = activityDoc.data().eventName;
+      }
+
       // Current timestamp
       const now = new Date().toISOString();
 
-      // Get NGO ID and name from activity
-      const activityDocRef = doc(db, "activities", activityId);
-      const activityDocSnap = await getDoc(activityDocRef);
+      // Add participant to activity
+      await updateDoc(participantDocRef, {
+        email: newParticipant.email,
+        addedAt: now,
+        addedBy: auth.currentUser.uid,
+      });
 
-      let ngoId = "";
-      let ngoName = "";
+      // Update user's participations
+      const userRef = doc(db, "users", userId);
+      await updateDoc(userRef, {
+        participations: arrayUnion({
+          activityId,
+          ngoId,
+          eventName,
+          registrationDate: now,
+        }),
+      });
 
+      // Send notification to the participant
+      await sendNotificationToUser(userId, "ACTIVITY_REGISTRATION", {
+        message: `You have been added as a participant for ${eventName}`,
+      });
+
+      // Send notification to NGO members
+      await sendNotificationToNGO(ngoId, "NGO_EVENT_UPDATED", {
       if (activityDocSnap.exists()) {
         const activityData = activityDocSnap.data();
         ngoId = activityData.ngoId || "";

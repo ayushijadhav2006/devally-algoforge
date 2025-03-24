@@ -25,6 +25,8 @@ import {
   onSnapshot,
   updateDoc,
   deleteDoc,
+  getDocs,
+  collection,
 } from "firebase/firestore";
 import { auth } from "@/lib/firebase";
 import {
@@ -48,6 +50,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import Link from "next/link";
+import {
+  sendNotificationToUser,
+  sendNotificationToNGO,
+} from "@/lib/notificationService";
+import { NOTIFICATION_TYPES } from "@/lib/notificationTypes";
+import toast from "react-hot-toast";
 
 export default function NGOActivitiesPage() {
   const params = useParams();
@@ -131,6 +139,146 @@ export default function NGOActivitiesPage() {
 
   const handleBookmark = () => {
     console.log("Bookmark activity:", activity.id);
+  };
+
+  const handleActivityUpdate = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const activityRef = doc(db, "activities", activityId);
+
+      // Update activity details
+      await updateDoc(activityRef, {
+        title: activityData.title,
+        description: activityData.description,
+        date: activityData.date,
+        location: activityData.location,
+        maxParticipants: activityData.maxParticipants,
+        status: activityData.status,
+        updatedAt: new Date(),
+      });
+
+      // Send notification to all participants
+      const participantsSnapshot = await getDocs(
+        collection(db, "activities", activityId, "participants")
+      );
+      for (const participant of participantsSnapshot.docs) {
+        await sendNotificationToUser(participant.id, "ACTIVITY_UPDATED", {
+          message: `The activity "${activityData.title}" has been updated`,
+          customData: {
+            activityId,
+            activityTitle: activityData.title,
+          },
+        });
+      }
+
+      // Send notification to NGO members
+      await sendNotificationToNGO(ngoId, "ACTIVITY_UPDATED", {
+        message: `Activity "${activityData.title}" has been updated`,
+        customData: {
+          activityId,
+          activityTitle: activityData.title,
+        },
+      });
+
+      toast.success("Activity updated successfully");
+
+      // Refresh activity data
+      fetchActivityData();
+    } catch (error) {
+      console.error("Error updating activity:", error);
+      toast.error(error.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleActivityCancellation = async () => {
+    try {
+      const activityRef = doc(db, "activities", activityId);
+
+      // Update activity status
+      await updateDoc(activityRef, {
+        status: "cancelled",
+        cancelledAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      // Send notification to all participants
+      const participantsSnapshot = await getDocs(
+        collection(db, "activities", activityId, "participants")
+      );
+      for (const participant of participantsSnapshot.docs) {
+        await sendNotificationToUser(participant.id, "ACTIVITY_CANCELLED", {
+          message: `The activity "${activityData.title}" has been cancelled`,
+          customData: {
+            activityId,
+            activityTitle: activityData.title,
+          },
+        });
+      }
+
+      // Send notification to NGO members
+      await sendNotificationToNGO(ngoId, "ACTIVITY_CANCELLED", {
+        message: `Activity "${activityData.title}" has been cancelled`,
+        customData: {
+          activityId,
+          activityTitle: activityData.title,
+        },
+      });
+
+      toast.success("Activity cancelled successfully");
+
+      // Refresh activity data
+      fetchActivityData();
+    } catch (error) {
+      console.error("Error cancelling activity:", error);
+      toast.error(error.message);
+    }
+  };
+
+  const handleActivityCompletion = async () => {
+    try {
+      const activityRef = doc(db, "activities", activityId);
+
+      // Update activity status
+      await updateDoc(activityRef, {
+        status: "completed",
+        completedAt: new Date(),
+        updatedAt: new Date(),
+      });
+
+      // Send notification to all participants
+      const participantsSnapshot = await getDocs(
+        collection(db, "activities", activityId, "participants")
+      );
+      for (const participant of participantsSnapshot.docs) {
+        await sendNotificationToUser(participant.id, "ACTIVITY_COMPLETED", {
+          message: `The activity "${activityData.title}" has been completed`,
+          customData: {
+            activityId,
+            activityTitle: activityData.title,
+          },
+        });
+      }
+
+      // Send notification to NGO members
+      await sendNotificationToNGO(ngoId, "ACTIVITY_COMPLETED", {
+        message: `Activity "${activityData.title}" has been completed`,
+        customData: {
+          activityId,
+          activityTitle: activityData.title,
+        },
+      });
+
+      toast.success("Activity marked as completed");
+
+      // Refresh activity data
+      fetchActivityData();
+    } catch (error) {
+      console.error("Error completing activity:", error);
+      toast.error(error.message);
+    }
   };
 
   if (!activity) {
