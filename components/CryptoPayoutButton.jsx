@@ -29,8 +29,11 @@ import {
   addDoc,
   collection,
   serverTimestamp,
+  setDoc,
+  increment,
 } from "firebase/firestore";
-import { ethers, parseUnits } from "ethers/lib/utils";
+import { ethers } from "ethers";
+import { parseUnits } from "ethers/lib/utils";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 export function CryptoPayoutButton({
@@ -153,11 +156,19 @@ export function CryptoPayoutButton({
           // Create provider more reliably with Sepolia configuration
           let provider;
           if (window.ethereum) {
+            // Ensure we're on Sepolia testnet
+            const chainId = await window.ethereum.request({
+              method: "eth_chainId",
+            });
+            if (chainId !== "0xaa36a7") {
+              // Sepolia chainId
+              throw new Error("Please switch to Sepolia testnet");
+            }
             provider = new ethers.providers.Web3Provider(window.ethereum);
           } else {
-            // Fallback to Sepolia public provider
+            // Fallback to Sepolia public provider with proper configuration
             provider = new ethers.providers.JsonRpcProvider(
-              "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161" // Sepolia RPC URL
+              "https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161"
             );
           }
 
@@ -166,21 +177,33 @@ export function CryptoPayoutButton({
             return;
           }
 
+          // Get the transaction receipt
           const receipt = await provider.getTransactionReceipt(hash);
 
           if (receipt) {
-            resolve({
-              status: receipt.status === 1 ? "success" : "failed",
-              receipt,
-            });
+            // Check if the transaction was successful
+            if (receipt.status === 1) {
+              resolve({
+                status: "success",
+                receipt,
+              });
+            } else {
+              resolve({
+                status: "failed",
+                receipt,
+              });
+            }
           } else {
+            // Transaction not yet mined, check again in 2 seconds
             setTimeout(checkReceipt, 2000);
           }
         } catch (error) {
+          console.error("Error checking transaction receipt:", error);
           reject(error);
         }
       };
 
+      // Start checking for the receipt
       checkReceipt();
     });
   };
@@ -261,6 +284,36 @@ export function CryptoPayoutButton({
             txHash: tx,
           }
         );
+
+        // Add notification for the user
+        const notificationDoc = doc(db, "notifications", auth.currentUser.uid);
+        try {
+          const docSnap = await getDoc(notificationDoc);
+          let existingNotifications = [];
+          if (docSnap.exists() && docSnap.data().notifications) {
+            existingNotifications = docSnap.data().notifications;
+          }
+
+          const newNotification = {
+            title: "Payout Request Submitted",
+            message: `Your payout request for ${amount} SMC tokens has been submitted successfully.`,
+            timestamp: new Date(),
+            read: false,
+            type: "success",
+            link: "/dashboard/ngo/payouts",
+          };
+
+          await setDoc(
+            notificationDoc,
+            {
+              notifications: [newNotification, ...existingNotifications],
+              unreadCount: increment(1),
+            },
+            { merge: true }
+          );
+        } catch (error) {
+          console.error("Error adding notification:", error);
+        }
 
         // Show success message
         toast.success("Payout request submitted successfully", {
