@@ -112,8 +112,8 @@ export default function Navbar() {
       className={cn(
         "fixed top-0 w-full z-50 transition-all duration-300",
         scrolled
-          ? "bg-background/95 backdrop-blur-md shadow-sm"
-          : "bg-background/80 backdrop-blur-sm border-b border-border"
+          ? "bg-white/95 backdrop-blur-md shadow-sm"
+          : "bg-white/80 backdrop-blur-sm border-b border-border"
       )}
     >
       <div className="container mx-auto px-4">
@@ -139,7 +139,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center">
             <Button
               onClick={() => setShowTranslationModal(true)}
-              className="bg-transparent hover:bg-foreground/10 text-foreground border-foreground/20 px-3 py-1 rounded-full text-sm flex items-center transition-all duration-300 hover:ring-2 hover:ring-emerald-500/30"
+              className="bg-transparent hover:bg-foreground/10 text-black border-foreground/20 px-3 py-1 rounded-full text-sm flex items-center transition-all duration-300 hover:ring-2 hover:ring-emerald-500/30"
               variant="outline"
               size="sm"
             >
@@ -268,7 +268,7 @@ export default function Navbar() {
                   className={cn(
                     "px-4 py-2 rounded-full font-medium transition-all duration-300",
                     "border-2 border-foreground/20",
-                    "text-foreground",
+                    "text-black",
                     "hover:bg-foreground/10 hover:border-foreground/30"
                   )}
                 >
@@ -288,7 +288,7 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden p-4 bg-background/95 backdrop-blur-md border-t border-border animate-in slide-in-from-top duration-300">
+        <div className="md:hidden p-4 bg-white/95 backdrop-blur-md border-t border-border animate-in slide-in-from-top duration-300">
           <nav className="flex flex-col space-y-3">
             {navItems.map((item) => (
               <Link
@@ -365,7 +365,7 @@ export default function Navbar() {
                 <div className="flex flex-col space-y-2">
                   <Link
                     href="/login"
-                    className="px-3 py-2.5 text-sm font-medium border border-foreground/20 rounded-md text-foreground hover:bg-foreground/10 transition-all duration-300 text-center"
+                    className="px-3 py-2.5 text-sm font-medium border border-foreground/20 rounded-md text-black hover:bg-foreground/10 transition-all duration-300 text-center"
                     onClick={toggleMenu}
                   >
                     {translations.sign_in || "Sign In"}

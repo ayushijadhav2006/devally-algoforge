@@ -92,6 +92,7 @@
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.0.15",
     "tailwindcss-animate": "^1.0.7",
+    "twilio": "^5.5.1",
     "uuid": "^11.0.5",
     "viem": "^2.23.5",
     "wagmi": "^2.14.12",

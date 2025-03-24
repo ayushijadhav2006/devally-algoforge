@@ -1,18 +1,32 @@
-"use client"
+"use client";
 
-import { useEffect, useRef, useState } from "react"
-import Link from "next/link"
-import { motion } from "framer-motion"
-import { FeaturesSectionDemo } from "@/components/feature"
-import { Sparkles, SparklesCore } from "@/components/ui/sparkles"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import FloatingNavbar from "@/components/floating-navbar"
-import Image from "next/image"
-import { MaskContainer } from "@/components/ui/svg-mask-effect"
-import { AnimatedTestimonials } from "@/components/ui/animated-testimonials"
-import { BentoGrid, BentoCard } from "@/components/magicui/bento-grid"
-import { BarChart, FileText, BookOpen, Users, Bell, Star, Globe, Clipboard } from "lucide-react"
-import React from "react"
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { FeaturesSectionDemo } from "@/components/feature";
+import { Sparkles, SparklesCore } from "@/components/ui/sparkles";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import FloatingNavbar from "@/components/floating-navbar";
+import Image from "next/image";
+import { MaskContainer } from "@/components/ui/svg-mask-effect";
+import { AnimatedTestimonials } from "@/components/ui/animated-testimonials";
+import { BentoGrid, BentoCard } from "@/components/magicui/bento-grid";
+import {
+  BarChart,
+  FileText,
+  BookOpen,
+  Users,
+  Bell,
+  Star,
+  Globe,
+  Clipboard,
+} from "lucide-react";
+import React from "react";
 
 // Custom animation class
 const animationStyles = `
@@ -27,7 +41,7 @@ const animationStyles = `
   .animate-spin-slow {
     animation: spin-slow 8s linear infinite;
   }
-`
+`;
 
 // Create icons for the BentoGrid component
 const FeatureIcons = {
@@ -38,14 +52,15 @@ const FeatureIcons = {
   Notifications: Bell,
   Recognition: Star,
   Global: Globe,
-  Management: Clipboard
+  Management: Clipboard,
 };
 
 // Feature data for BentoGrid
 const featureData = [
   {
     name: "Analytics Dashboard",
-    description: "Gain insights into engagement, participation rates, and impact metrics through our powerful analytics dashboard.",
+    description:
+      "Gain insights into engagement, participation rates, and impact metrics through our powerful analytics dashboard.",
     icon: "Analytics",
     href: "/features/analytics",
     cta: "Explore Analytics",
@@ -53,7 +68,8 @@ const featureData = [
   },
   {
     name: "Report Generation",
-    description: "Create comprehensive reports for stakeholders, donors, and leadership with customizable templates.",
+    description:
+      "Create comprehensive reports for stakeholders, donors, and leadership with customizable templates.",
     icon: "Reports",
     href: "/features/reports",
     cta: "Generate Reports",
@@ -61,7 +77,8 @@ const featureData = [
   },
   {
     name: "Learning Resources",
-    description: "Access training materials, courses, and best practices to enhance your NGO's effectiveness.",
+    description:
+      "Access training materials, courses, and best practices to enhance your NGO's effectiveness.",
     icon: "Learning",
     href: "/features/learning",
     cta: "Start Learning",
@@ -69,7 +86,8 @@ const featureData = [
   },
   {
     name: "Community Hub",
-    description: "Connect with other NGOs, volunteers, and supporters in a collaborative space.",
+    description:
+      "Connect with other NGOs, volunteers, and supporters in a collaborative space.",
     icon: "Community",
     href: "/features/community",
     cta: "Join Community",
@@ -77,7 +95,8 @@ const featureData = [
   },
   {
     name: "Multi-channel Notifications",
-    description: "Keep everyone informed with automated notifications via email, SMS, and in-app alerts.",
+    description:
+      "Keep everyone informed with automated notifications via email, SMS, and in-app alerts.",
     icon: "Notifications",
     href: "/features/notifications",
     cta: "Setup Alerts",
@@ -85,7 +104,8 @@ const featureData = [
   },
   {
     name: "Volunteer Recognition",
-    description: "Celebrate contributions with badges, certificates, and a gamified experience.",
+    description:
+      "Celebrate contributions with badges, certificates, and a gamified experience.",
     icon: "Recognition",
     href: "/features/recognition",
     cta: "Recognize Efforts",
@@ -93,7 +113,8 @@ const featureData = [
   },
   {
     name: "Global Presence",
-    description: "Manage operations across multiple regions with localization and regional insights.",
+    description:
+      "Manage operations across multiple regions with localization and regional insights.",
     icon: "Global",
     href: "/features/global",
     cta: "Go Global",
@@ -101,7 +122,8 @@ const featureData = [
   },
   {
     name: "Event Management",
-    description: "Effortlessly plan, schedule, and track events with our integrated management tools.",
+    description:
+      "Effortlessly plan, schedule, and track events with our integrated management tools.",
     icon: "Management",
     href: "/features/events",
     cta: "Manage Events",
@@ -113,22 +135,22 @@ export default function Home() {
   const [isVisible, setIsVisible] = useState({
     features: false,
     whyChooseUs: false,
-  })
-  
+  });
+
   // Add error state
   const [hasError, setHasError] = useState(false);
 
-  const featuresRef = useRef(null)
-  const whyChooseUsRef = useRef(null)
-  
+  const featuresRef = useRef(null);
+  const whyChooseUsRef = useRef(null);
+
   // Image carousel state
-  const [currentImage, setCurrentImage] = useState(0)
+  const [currentImage, setCurrentImage] = useState(0);
   const carouselItems = [
     { id: 1, title: "Success Story", image: "/img/img1.jpg" },
     { id: 2, title: "Impact Report", image: "/img/img2.jpg" },
     { id: 3, title: "Volunteer Experience", image: "/img/img3.jpg" },
     { id: 4, title: "Community Outreach", image: "/img/im4.jpg" },
-  ]
+  ];
 
   // Testimonials data
   const testimonials = [
@@ -136,39 +158,42 @@ export default function Home() {
       name: "Sarah Johnson",
       designation: "NGO Director",
       src: "/img/img1.jpg",
-      quote: "This platform has revolutionized how we connect with volunteers. We've seen a 200% increase in community engagement since joining."
+      quote:
+        "This platform has revolutionized how we connect with volunteers. We've seen a 200% increase in community engagement since joining.",
     },
     {
       name: "Michael Chen",
       designation: "Volunteer",
       src: "/img/img2.jpg",
-      quote: "I've been able to contribute to causes I'm passionate about and meet amazing people along the way. The experience has been life-changing."
+      quote:
+        "I've been able to contribute to causes I'm passionate about and meet amazing people along the way. The experience has been life-changing.",
     },
     {
       name: "Priya Patel",
       designation: "Community Organizer",
       src: "/img/img3.jpg",
-      quote: "The tools provided made it so easy to organize our neighborhood cleanup initiative. We achieved more in one month than we did all of last year!"
+      quote:
+        "The tools provided made it so easy to organize our neighborhood cleanup initiative. We achieved more in one month than we did all of last year!",
     },
   ];
 
   // Auto-rotate carousel images
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentImage((prev) => (prev + 1) % carouselItems.length)
-    }, 3000)
-    
-    return () => clearInterval(interval)
-  }, [carouselItems.length])
-  
+      setCurrentImage((prev) => (prev + 1) % carouselItems.length);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [carouselItems.length]);
+
   // Error handling
   useEffect(() => {
     const handleError = () => {
       setHasError(true);
     };
-    
-    window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
+
+    window.addEventListener("error", handleError);
+    return () => window.removeEventListener("error", handleError);
   }, []);
 
   useEffect(() => {
@@ -176,35 +201,51 @@ export default function Home() {
       (entries) => {
         entries.forEach((entry) => {
           if (entry.target === featuresRef.current) {
-            setIsVisible((prev) => ({ ...prev, features: entry.isIntersecting }))
+            setIsVisible((prev) => ({
+              ...prev,
+              features: entry.isIntersecting,
+            }));
           } else if (entry.target === whyChooseUsRef.current) {
-            setIsVisible((prev) => ({ ...prev, whyChooseUs: entry.isIntersecting }))
+            setIsVisible((prev) => ({
+              ...prev,
+              whyChooseUs: entry.isIntersecting,
+            }));
           }
-        })
+        });
       },
-      { threshold: 0.1 },
-    )
+      { threshold: 0.1 }
+    );
 
-    if (featuresRef.current) observer.observe(featuresRef.current)
-    if (whyChooseUsRef.current) observer.observe(whyChooseUsRef.current)
+    if (featuresRef.current) observer.observe(featuresRef.current);
+    if (whyChooseUsRef.current) observer.observe(whyChooseUsRef.current);
 
     return () => {
-      if (featuresRef.current) observer.unobserve(featuresRef.current)
-      if (whyChooseUsRef.current) observer.unobserve(whyChooseUsRef.current)
-    }
-  }, [])
+      if (featuresRef.current) observer.unobserve(featuresRef.current);
+      if (whyChooseUsRef.current) observer.unobserve(whyChooseUsRef.current);
+    };
+  }, []);
 
   // If there's an error, show a simple fallback
   if (hasError) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center bg-background dark:bg-black">
-        <p className="text-3xl md:text-3xl font-bold text-foreground dark:text-white">Welcome to SMILE-SHARE</p>
-        <p className="mt-4 text-xl md:text-2xl text-muted-foreground dark:text-gray-300">Streamline your NGO management process with our powerful platform</p>
+      <div className="flex min-h-screen flex-col items-center justify-center p-4 text-center bg-white dark:bg-black">
+        <p className="text-3xl md:text-3xl font-bold text-black dark:text-white">
+          Welcome to SMILE-SHARE
+        </p>
+        <p className="mt-4 text-xl md:text-2xl text-muted-foreground dark:text-gray-300">
+          Streamline your NGO management process with our powerful platform
+        </p>
         <div className="mt-8 flex gap-4">
-          <Link href="/register" className="rounded-lg bg-primary px-6 py-3 text-lg md:text-xl font-medium text-white hover:shadow-lg hover:shadow-primary/20">
+          <Link
+            href="/register"
+            className="rounded-lg bg-primary px-6 py-3 text-lg md:text-xl font-medium text-white hover:shadow-lg hover:shadow-primary/20"
+          >
             Get Started
           </Link>
-          <Link href="/ngo" className="rounded-lg border px-6 py-3 text-lg md:text-xl font-medium text-foreground dark:text-white hover:bg-accent/50">
+          <Link
+            href="/ngo"
+            className="rounded-lg border px-6 py-3 text-lg md:text-xl font-medium text-black dark:text-white hover:bg-accent/50"
+          >
             Explore NGOs
           </Link>
         </div>
@@ -213,10 +254,10 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-background dark:bg-black text-foreground overflow-x-hidden transition-colors duration-300">
+    <div className="min-h-screen bg-white dark:bg-black text-black overflow-x-hidden transition-colors duration-300">
       {/* Apply custom animations with proper syntax */}
       <style dangerouslySetInnerHTML={{ __html: animationStyles }} />
-      
+
       {/* Hero Section */}
       <div className="relative min-h-screen overflow-hidden">
         <FloatingNavbar />
@@ -235,7 +276,7 @@ export default function Home() {
             <div></div> {/* Empty div to avoid affecting content layout */}
           </Sparkles>
         </div>
-        
+
         {/* Hero Content */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -248,7 +289,7 @@ export default function Home() {
             {/* Left Content with Acrylic Box */}
             <div className="w-full lg:w-1/2 relative">
               {/* Acrylic Box using your specific styling */}
-              <motion.div 
+              <motion.div
                 className="absolute inset-0 rounded-xl
                   bg-white/15 dark:bg-black/20
                   backdrop-filter backdrop-blur-[2.5px]
@@ -256,12 +297,12 @@ export default function Home() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 1.5, delay: 0.3 }}
-                whileHover={{ 
+                whileHover={{
                   boxShadow: "0 12px 40px 0 rgba(31, 38, 135, 0.45)",
-                  transition: { duration: 0.3 }
+                  transition: { duration: 0.3 },
                 }}
               ></motion.div>
-              
+
               <div className="relative z-10 p-8 md:p-12 lg:p-14">
                 <motion.h1
                   initial={{ opacity: 0, y: 20 }}
@@ -269,7 +310,7 @@ export default function Home() {
                   transition={{ duration: 0.8, delay: 0.2 }}
                   className="text-5xl md:text-7xl lg:text-7xl font-bold mb-6 tracking-tight text-left"
                 >
-                  <span className="text-foreground dark:text-white">Welcome to</span>
+                  <span className="text-black dark:text-white">Welcome to</span>
                   <br />
                   <span className="bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 to-blue-500">
                     SMILE-SHARE
@@ -282,7 +323,8 @@ export default function Home() {
                   transition={{ duration: 0.8, delay: 0.4 }}
                   className="text-xl md:text-2xl lg:text-2xl text-muted-foreground dark:text-gray-300 mb-10 text-left max-w-xl"
                 >
-                  Streamline your NGO management process with our powerful platform
+                  Streamline your NGO management process with our powerful
+                  platform
                 </motion.p>
 
                 <motion.div
@@ -313,27 +355,28 @@ export default function Home() {
             </div>
 
             {/* Right Side - Circular Image Carousel */}
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 1, delay: 0.6 }}
               className="w-full lg:w-1/2 flex justify-center items-center pt-10 lg:pt-0"
             >
-              <motion.div 
+              <motion.div
                 className="relative w-80 h-80 md:w-[500px] md:h-[500px] lg:w-[600px] lg:h-[600px]"
                 whileHover={{ scale: 1.03 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
               >
                 {/* Rotating border effect */}
                 <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 animate-spin-slow"></div>
-                
+
                 {/* Circular frame with acrylic effect */}
-                <div className="absolute inset-[4px] rounded-full 
+                <div
+                  className="absolute inset-[4px] rounded-full 
                   bg-white/15 dark:bg-black/20
                   backdrop-filter backdrop-blur-[2.5px]
                   border border-white/20
-                  overflow-hidden">
-                  
+                  overflow-hidden"
+                >
                   {/* Image carousel */}
                   <div className="relative w-full h-[600px] rounded-xl overflow-hidden">
                     {carouselItems.map((item, index) => (
@@ -343,11 +386,11 @@ export default function Home() {
                         initial={{ opacity: 0, scale: 1.05 }}
                         animate={{
                           opacity: currentImage === index ? 1 : 0,
-                          scale: currentImage === index ? 1 : 1.05
+                          scale: currentImage === index ? 1 : 1.05,
                         }}
                         transition={{
                           opacity: { duration: 0.7 },
-                          scale: { duration: 1 }
+                          scale: { duration: 1 },
                         }}
                       >
                         <Image
@@ -358,28 +401,35 @@ export default function Home() {
                           sizes="(max-width: 768px) 100vw, 50vw"
                           priority={index === 0}
                         />
-                        
+
                         {/* Overlay gradient */}
-                        <div className={`absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30 opacity-80`} />
-                        
+                        <div
+                          className={`absolute inset-0 bg-gradient-to-t from-black via-black/70 to-black/30 opacity-80`}
+                        />
+
                         {/* Content */}
-                        <motion.div 
+                        <motion.div
                           className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 opacity-0 hover:opacity-100 transition-all duration-300"
                           initial={{ opacity: 0, scale: 0.95 }}
-                          whileHover={{ 
-                            opacity: 1, 
+                          whileHover={{
+                            opacity: 1,
                             scale: 1,
-                            transition: { duration: 0.3 } 
+                            transition: { duration: 0.3 },
                           }}
                         >
                           <div className="bg-black/60 backdrop-blur-md p-6 rounded-xl max-w-md w-full transform hover:scale-105 transition-transform duration-300 border border-white/10">
-                            <h3 className="text-3xl font-bold mb-3 text-white drop-shadow-md">{item.title}</h3>
-                            <p className="text-white text-lg font-medium drop-shadow-md">Explore how our platform is making a real difference in communities around the world.</p>
+                            <h3 className="text-3xl font-bold mb-3 text-white drop-shadow-md">
+                              {item.title}
+                            </h3>
+                            <p className="text-white text-lg font-medium drop-shadow-md">
+                              Explore how our platform is making a real
+                              difference in communities around the world.
+                            </p>
                           </div>
                         </motion.div>
                       </motion.div>
                     ))}
-                    
+
                     {/* Navigation dots */}
                     <div className="absolute bottom-4 right-8 flex space-x-2">
                       {carouselItems.map((_, index) => (
@@ -387,8 +437,8 @@ export default function Home() {
                           key={index}
                           onClick={() => setCurrentImage(index)}
                           className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                            currentImage === index 
-                              ? "bg-white scale-125" 
+                            currentImage === index
+                              ? "bg-white scale-125"
                               : "bg-white/50 hover:bg-white/80"
                           }`}
                           aria-label={`Go to slide ${index + 1}`}
@@ -409,7 +459,13 @@ export default function Home() {
           >
             <div className="animate-bounce flex flex-col items-center text-muted-foreground">
               <span className="text-sm mb-2">Scroll to explore</span>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
                 <path
                   d="M12 5V19M12 19L5 12M12 19L19 12"
                   stroke="currentColor"
@@ -424,16 +480,17 @@ export default function Home() {
       </div>
 
       {/* SVG Mask Effect Section */}
-      <section className="relative bg-background dark:bg-black border-t border-border/20 py-16 w-full">
+      <section className="relative bg-white dark:bg-black border-t border-border/20 py-16 w-full">
         <div className="container mx-auto px-4">
           <MaskContainer
             revealText={
               <div className="max-w-4xl mx-auto text-center">
-                <h2 className="text-4xl md:text-5xl font-bold mb-6 text-foreground dark:text-white">
+                <h2 className="text-4xl md:text-5xl font-bold mb-6 text-black dark:text-white">
                   Empowering Communities Together
                 </h2>
                 <p className="text-xl text-muted-foreground dark:text-gray-300 max-w-2xl mx-auto">
-                  Hover or move your cursor over this section to reveal our mission and impact.
+                  Hover or move your cursor over this section to reveal our
+                  mission and impact.
                 </p>
               </div>
             }
@@ -450,14 +507,15 @@ export default function Home() {
                   style={{ objectFit: "cover", opacity: 0.4 }}
                 />
               </div>
-              
+
               <div className="relative z-10">
                 <h2 className="text-4xl md:text-5xl font-bold mb-6 text-white dark:text-black">
                   Making a Difference
                 </h2>
                 <p className="text-xl text-white/90 dark:text-black/90 max-w-2xl mb-8">
-                  Our platform connects NGOs, volunteers, and communities to create meaningful change and sustainable impact
-                  across various social and environmental initiatives.
+                  Our platform connects NGOs, volunteers, and communities to
+                  create meaningful change and sustainable impact across various
+                  social and environmental initiatives.
                 </p>
                 <div className="flex flex-wrap gap-4">
                   <Link
@@ -482,7 +540,7 @@ export default function Home() {
       {/* Testimonials Section */}
       <section className="py-20 bg-slate-50 dark:bg-slate-900">
         <div className="container mx-auto px-4">
-          <motion.div 
+          <motion.div
             className="text-center mb-16"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -498,8 +556,8 @@ export default function Home() {
             >
               Testimonials
             </motion.div>
-            <motion.h2 
-              className="text-4xl md:text-5xl font-bold mb-4 text-foreground"
+            <motion.h2
+              className="text-4xl md:text-5xl font-bold mb-4 text-black"
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               transition={{ delay: 0.3, duration: 0.5 }}
@@ -507,7 +565,7 @@ export default function Home() {
             >
               What Our Users Say
             </motion.h2>
-            <motion.p 
+            <motion.p
               className="text-xl text-muted-foreground max-w-2xl mx-auto"
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
@@ -517,16 +575,21 @@ export default function Home() {
               Hear from the people who are making a difference with our platform
             </motion.p>
           </motion.div>
-          
+
           <AnimatedTestimonials testimonials={testimonials} autoplay={true} />
         </div>
       </section>
 
       {/* Features Section */}
-      <div ref={featuresRef} className="relative bg-background dark:bg-black py-16 z-10 transition-colors duration-300">
+      <div
+        ref={featuresRef}
+        className="relative bg-white dark:bg-black py-16 z-10 transition-colors duration-300"
+      >
         <motion.div
           initial={{ opacity: 0, y: 30 }}
-          animate={isVisible.features ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+          animate={
+            isVisible.features ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }
+          }
           transition={{ duration: 0.8 }}
           className="flex justify-center mb-16 relative"
         >
@@ -540,7 +603,7 @@ export default function Home() {
 
           {/* Button with spinning border */}
           <div className="relative inline-flex h-12 overflow-hidden rounded-full p-[1px] focus:outline-none bg-primary/20">
-            <span className="inline-flex h-full w-full items-center justify-center rounded-full bg-background dark:bg-black px-8 py-1 text-lg font-medium text-foreground dark:text-white">
+            <span className="inline-flex h-full w-full items-center justify-center rounded-full bg-white dark:bg-black px-8 py-1 text-lg font-medium text-black dark:text-white">
               Features
             </span>
           </div>
@@ -548,20 +611,23 @@ export default function Home() {
 
         <motion.div
           initial={{ opacity: 0, y: 30 }}
-          animate={isVisible.features ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+          animate={
+            isVisible.features ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }
+          }
           transition={{ duration: 0.8, delay: 0.2 }}
           className="container mx-auto px-4"
         >
           <div className="text-center max-w-3xl mx-auto mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-foreground dark:text-white">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-black dark:text-white">
               Powerful Features to Maximize Impact
             </h2>
             <p className="text-lg text-muted-foreground dark:text-gray-300">
-              Our platform provides all the tools you need to manage your NGO effectively, 
-              connect with volunteers, and make a real difference in your community.
+              Our platform provides all the tools you need to manage your NGO
+              effectively, connect with volunteers, and make a real difference
+              in your community.
             </p>
           </div>
-          
+
           <div className="max-w-7xl mx-auto">
             <BentoGrid>
               {featureData.map((feature, i) => (
@@ -591,10 +657,17 @@ export default function Home() {
         </motion.div>
 
         {/* Why Choose Us Section */}
-        <div ref={whyChooseUsRef} className="mt-24 mb-16 transition-colors duration-300">
+        <div
+          ref={whyChooseUsRef}
+          className="mt-24 mb-16 transition-colors duration-300"
+        >
           <motion.div
             initial={{ opacity: 0, y: 30 }}
-            animate={isVisible.whyChooseUs ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+            animate={
+              isVisible.whyChooseUs
+                ? { opacity: 1, y: 0 }
+                : { opacity: 0, y: 30 }
+            }
             transition={{ duration: 0.8 }}
             className="flex justify-center mb-16 relative"
           >
@@ -608,7 +681,7 @@ export default function Home() {
 
             {/* Button with spinning border */}
             <div className="relative inline-flex h-12 overflow-hidden rounded-full p-[1px] focus:outline-none bg-primary/20">
-              <span className="inline-flex h-full w-full items-center justify-center rounded-full bg-background dark:bg-black px-8 py-1 text-lg font-medium text-foreground dark:text-white">
+              <span className="inline-flex h-full w-full items-center justify-center rounded-full bg-white dark:bg-black px-8 py-1 text-lg font-medium text-black dark:text-white">
                 Why Choose Us?
               </span>
             </div>
@@ -616,7 +689,11 @@ export default function Home() {
 
           <motion.div
             initial={{ opacity: 0, y: 30 }}
-            animate={isVisible.whyChooseUs ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+            animate={
+              isVisible.whyChooseUs
+                ? { opacity: 1, y: 0 }
+                : { opacity: 0, y: 30 }
+            }
             transition={{ duration: 0.8, delay: 0.2 }}
             className="max-w-3xl mx-auto px-4 sm:px-6"
           >
@@ -650,15 +727,19 @@ export default function Home() {
                 <AccordionItem value={`item-${index}`} className="border-none">
                   <AccordionTrigger className="text-left py-6 group">
                     <div className="flex items-center gap-4">
-                      <motion.div 
+                      <motion.div
                         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors dark:bg-primary/20 dark:group-hover:bg-primary/30"
                         whileHover={{ scale: 1.1, rotate: 5 }}
                         whileTap={{ scale: 0.95 }}
-                        transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 400,
+                          damping: 17,
+                        }}
                       >
                         <span className="font-semibold">{index + 1}</span>
                       </motion.div>
-                      <motion.span 
+                      <motion.span
                         className="text-lg font-semibold group-hover:text-primary transition-colors dark:text-white"
                         whileHover={{ x: 5 }}
                         transition={{ type: "spring", stiffness: 300 }}
@@ -672,10 +753,10 @@ export default function Home() {
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      transition={{ 
+                      transition={{
                         duration: 0.3,
                         height: { duration: 0.4 },
-                        opacity: { duration: 0.3 } 
+                        opacity: { duration: 0.3 },
                       }}
                     >
                       {item.content}
@@ -707,20 +788,20 @@ export default function Home() {
 
         <div className="container relative z-10 mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
-            <motion.h2 
-              className="text-4xl md:text-5xl font-bold mb-6 text-foreground dark:text-white"
+            <motion.h2
+              className="text-4xl md:text-5xl font-bold mb-6 text-black dark:text-white"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              transition={{ 
-                duration: 0.8, 
+              transition={{
+                duration: 0.8,
                 type: "spring",
-                stiffness: 100
+                stiffness: 100,
               }}
               viewport={{ once: true }}
             >
               Transform Your NGO Management Today
             </motion.h2>
-            
+
             <motion.div
               className="mt-8 flex justify-center"
               initial={{ opacity: 0, scale: 0.9 }}
@@ -732,24 +813,35 @@ export default function Home() {
                 href="/register"
                 className="group relative inline-flex items-center justify-center px-8 py-4 text-lg font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/30"
               >
-                <motion.span 
+                <motion.span
                   className="absolute inset-0 w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600"
                   initial={{ opacity: 0 }}
-                  whileHover={{ 
+                  whileHover={{
                     opacity: 1,
-                    transition: { duration: 0.3 }
+                    transition: { duration: 0.3 },
                   }}
                 />
                 <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-purple-500 via-indigo-500 to-purple-500 opacity-0 group-hover:opacity-100 group-hover:blur-md transition-all duration-500" />
-                <motion.span 
+                <motion.span
                   className="relative z-10 inline-flex items-center gap-2"
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   transition={{ type: "spring", stiffness: 400, damping: 10 }}
                 >
                   Get Started
-                  <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  <svg
+                    className="w-5 h-5 transition-transform group-hover:translate-x-1"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M14 5l7 7m0 0l-7 7m7-7H3"
+                    />
                   </svg>
                 </motion.span>
               </Link>
@@ -758,6 +850,5 @@ export default function Home() {
         </div>
       </section>
     </div>
-  )
+  );
 }
-

@@ -162,7 +162,7 @@ export default function NotificationsPopup({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
             transition={{ duration: 0.2 }}
-            className="absolute bottom-full left-0 right-0 mb-2 max-h-[400px] w-full md:w-80 overflow-hidden rounded-md border border-border bg-background shadow-lg z-50"
+            className="absolute bottom-full left-0 right-0 mb-2 max-h-[400px] w-full md:w-80 overflow-hidden rounded-md border border-border bg-white shadow-lg z-50"
           >
             <div className="flex items-center justify-between border-b border-border p-3">
               <h3 className="font-medium">Notifications</h3>
@@ -181,7 +181,7 @@ export default function NotificationsPopup({
                 className={cn(
                   "flex-1 p-2 text-sm font-medium",
                   activeTab === "all"
-                    ? "border-b-2 border-emerald-500 text-foreground"
+                    ? "border-b-2 border-emerald-500 text-black"
                     : "text-muted-foreground"
                 )}
               >
@@ -192,7 +192,7 @@ export default function NotificationsPopup({
                 className={cn(
                   "flex-1 p-2 text-sm font-medium",
                   activeTab === "unread"
-                    ? "border-b-2 border-emerald-500 text-foreground"
+                    ? "border-b-2 border-emerald-500 text-black"
                     : "text-muted-foreground"
                 )}
               >
@@ -248,7 +248,7 @@ export default function NotificationsPopup({
                                 e.stopPropagation();
                                 handleMarkAsRead(actualIndex);
                               }}
-                              className="rounded-full p-1 text-xs hover:bg-background"
+                              className="rounded-full p-1 text-xs hover:bg-white"
                               title="Mark as read"
                             >
                               <Check size={14} />

@@ -67,7 +67,7 @@ const Button = ({
   const variantStyles = {
     default: "bg-primary text-primary-foreground hover:bg-primary/90",
     outline:
-      "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+      "border border-input bg-white hover:bg-accent hover:text-accent-foreground",
     destructive:
       "bg-destructive text-destructive-foreground hover:bg-destructive/90",
   };
@@ -127,7 +127,7 @@ const ActivityParticipationPage = () => {
   const router = useRouter();
   const { language, translations } = useLanguage();
   const [showTranslationModal, setShowTranslationModal] = useState(false);
-  
+
   const handleRedirect = () => {
     router.push("/dashboard/user/activities/search-activity");
   };
@@ -176,14 +176,14 @@ const ActivityParticipationPage = () => {
   const formatDateLong = (dateString) => {
     if (!dateString) return translations.no_date || "No date";
     const date = new Date(dateString);
-    
-    const options = { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
+
+    const options = {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     };
-    
-    return date.toLocaleDateString('en-US', options);
+
+    return date.toLocaleDateString("en-US", options);
   };
 
   // Function to get user data
@@ -191,12 +191,16 @@ const ActivityParticipationPage = () => {
     try {
       const currentUserId = auth.currentUser?.uid;
       if (!currentUserId) {
-        throw new Error(translations.user_not_authenticated || "User not authenticated");
+        throw new Error(
+          translations.user_not_authenticated || "User not authenticated"
+        );
       }
 
       const userDoc = await getDoc(doc(db, "users", currentUserId));
       if (!userDoc.exists()) {
-        throw new Error(translations.user_data_not_found || "User data not found");
+        throw new Error(
+          translations.user_data_not_found || "User data not found"
+        );
       }
 
       const userData = userDoc.data();
@@ -215,20 +219,29 @@ const ActivityParticipationPage = () => {
       // Get user data
       const userData = await getUserData();
       if (!userData) {
-        throw new Error(translations.could_not_retrieve_user_data || "Could not retrieve user data");
+        throw new Error(
+          translations.could_not_retrieve_user_data ||
+            "Could not retrieve user data"
+        );
       }
 
       // Get NGO data for signature
       const ngoDoc = await getDoc(doc(db, "ngo", activity.ngoId));
-      const ngoData = ngoDoc.exists() ? ngoDoc.data() : { ngoName: translations.organization || "Organization" };
+      const ngoData = ngoDoc.exists()
+        ? ngoDoc.data()
+        : { ngoName: translations.organization || "Organization" };
 
       // Set certificate data
       setCertificateData({
         userName: userData.name || translations.participant || "Participant",
         userEmail: userData.email || "",
-        eventName: activity.activityDetails?.eventName || translations.event || "Event",
+        eventName:
+          activity.activityDetails?.eventName || translations.event || "Event",
         eventDate: formatDateLong(activity.activityDetails?.eventDate),
-        eventLocation: activity.activityDetails?.location?.address || translations.location || "Location",
+        eventLocation:
+          activity.activityDetails?.location?.address ||
+          translations.location ||
+          "Location",
         ngoName: ngoData.ngoName,
         ngoSignature: ngoData.signatureUrl || "/signature-placeholder.png",
         role: activity.role || "participant",
@@ -238,7 +251,10 @@ const ActivityParticipationPage = () => {
       setShowCertificate(true);
     } catch (err) {
       console.error("Error generating certificate:", err);
-      setError(translations.failed_to_generate_certificate || "Failed to generate certificate. Please try again.");
+      setError(
+        translations.failed_to_generate_certificate ||
+          "Failed to generate certificate. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -247,31 +263,36 @@ const ActivityParticipationPage = () => {
   // Function to download certificate as PDF
   const downloadCertificate = async () => {
     const certificateElement = document.getElementById("certificate-container");
-    
+
     if (!certificateElement) return;
-    
+
     try {
       const canvas = await html2canvas(certificateElement, {
         scale: 2,
         useCORS: true,
-        logging: false
+        logging: false,
       });
-      
+
       const imgData = canvas.toDataURL("image/jpeg", 1.0);
       const pdf = new jsPDF({
         orientation: "landscape",
         unit: "mm",
-        format: "a4"
+        format: "a4",
       });
-      
+
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      
+
       pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`Certificate_${certificateData.eventName.replace(/\s+/g, "_")}.pdf`);
+      pdf.save(
+        `Certificate_${certificateData.eventName.replace(/\s+/g, "_")}.pdf`
+      );
     } catch (err) {
       console.error("Error downloading certificate:", err);
-      setError(translations.failed_to_download_certificate || "Failed to download certificate. Please try again.");
+      setError(
+        translations.failed_to_download_certificate ||
+          "Failed to download certificate. Please try again."
+      );
     }
   };
 
@@ -287,13 +308,17 @@ const ActivityParticipationPage = () => {
         // Get current user ID
         const currentUserId = auth.currentUser?.uid;
         if (!currentUserId) {
-          throw new Error(translations.user_not_authenticated || "User not authenticated");
+          throw new Error(
+            translations.user_not_authenticated || "User not authenticated"
+          );
         }
 
         // Get user's participation data
         const userDoc = await getDoc(doc(db, "users", currentUserId));
         if (!userDoc.exists()) {
-          throw new Error(translations.user_data_not_found || "User data not found");
+          throw new Error(
+            translations.user_data_not_found || "User data not found"
+          );
         }
 
         const userData = userDoc.data();
@@ -473,7 +498,11 @@ const ActivityParticipationPage = () => {
         {showQR && (
           <Image
             src={activity.activityDetails?.logoUrl || "/placeholder.svg"}
-            alt={activity.activityDetails?.eventName || translations.activity || "Activity"}
+            alt={
+              activity.activityDetails?.eventName ||
+              translations.activity ||
+              "Activity"
+            }
             className="object-cover"
             width={200}
             height={200}
@@ -495,14 +524,20 @@ const ActivityParticipationPage = () => {
           <div className="mt-2 flex gap-2">
             <Badge>{activity.role}</Badge>
             {!showQR && (
-              <Badge>{activity.attendance ? translations.attended || "Attended" : translations.not_attended || "Not Attended"}</Badge>
+              <Badge>
+                {activity.attendance
+                  ? translations.attended || "Attended"
+                  : translations.not_attended || "Not Attended"}
+              </Badge>
             )}
           </div>
         </div>
       </div>
       {showQR ? (
         <div className="p-4 bg-gray-50 flex flex-col items-center justify-center min-w-[160px]">
-          <p className="text-xs text-gray-500 mb-2">{translations.show_qr_at_event || "Show QR at event"}</p>
+          <p className="text-xs text-gray-500 mb-2">
+            {translations.show_qr_at_event || "Show QR at event"}
+          </p>
           <Canvas
             text={activity.qrData}
             options={{
@@ -536,9 +571,9 @@ const ActivityParticipationPage = () => {
       ) : (
         showCertificateButton && (
           <div className="text-right">
-            <Button 
-              variant="sm" 
-              size="sm" 
+            <Button
+              variant="sm"
+              size="sm"
               className="bg-[#1CAC78] hover:bg-green-500 text-white"
               onClick={() => generateCertificate(activity)}
             >
@@ -550,13 +585,15 @@ const ActivityParticipationPage = () => {
       )}
     </div>
   );
-  
+
   return (
     <div className="container mx-auto p-4 space-y-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">{translations.activity_participation || "Activity Participation"}</h1>
-        <Button 
-          variant="outline" 
+        <h1 className="text-3xl font-bold">
+          {translations.activity_participation || "Activity Participation"}
+        </h1>
+        <Button
+          variant="outline"
           className="flex items-center gap-2"
           onClick={() => setShowTranslationModal(true)}
         >
@@ -572,19 +609,27 @@ const ActivityParticipationPage = () => {
               className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"
               role="status"
             >
-              <span className="sr-only">{translations.loading || "Loading..."}</span>
+              <span className="sr-only">
+                {translations.loading || "Loading..."}
+              </span>
             </div>
-            <p className="mt-2 text-gray-600">{translations.loading_activities || "Loading your activities..."}</p>
+            <p className="mt-2 text-gray-600">
+              {translations.loading_activities || "Loading your activities..."}
+            </p>
           </div>
         </div>
       ) : error ? (
-        <p className="text-red-500">{translations.error || "Error"}: {error}</p>
+        <p className="text-red-500">
+          {translations.error || "Error"}: {error}
+        </p>
       ) : (
         <>
           {liveEvent && (
             <Card className="bg-green-50">
               <CardHeader>
-                <CardTitle className="text-green-700">{translations.live_event || "Live Event"}</CardTitle>
+                <CardTitle className="text-green-700">
+                  {translations.live_event || "Live Event"}
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between">
@@ -611,7 +656,9 @@ const ActivityParticipationPage = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle>{translations.upcoming_events || "Upcoming Events"}</CardTitle>
+              <CardTitle>
+                {translations.upcoming_events || "Upcoming Events"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {upcomingActivities.length > 0 ? (
@@ -622,7 +669,8 @@ const ActivityParticipationPage = () => {
                 </div>
               ) : (
                 <p className="text-center text-gray-500">
-                  {translations.no_upcoming_events || "No upcoming events found"}
+                  {translations.no_upcoming_events ||
+                    "No upcoming events found"}
                 </p>
               )}
             </CardContent>
@@ -635,8 +683,12 @@ const ActivityParticipationPage = () => {
             <CardContent>
               <Tabs defaultValue="attended" className="w-full">
                 <TabsList className="grid grid-cols-2 mb-4">
-                  <TabsTrigger value="attended">{translations.attended || "Attended"}</TabsTrigger>
-                  <TabsTrigger value="not-attended">{translations.not_attended || "Not Attended"}</TabsTrigger>
+                  <TabsTrigger value="attended">
+                    {translations.attended || "Attended"}
+                  </TabsTrigger>
+                  <TabsTrigger value="not-attended">
+                    {translations.not_attended || "Not Attended"}
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="attended">
@@ -648,7 +700,8 @@ const ActivityParticipationPage = () => {
                     </div>
                   ) : (
                     <p className="text-center text-gray-500">
-                      {translations.no_attended_events || "No attended events found"}
+                      {translations.no_attended_events ||
+                        "No attended events found"}
                     </p>
                   )}
                 </TabsContent>
@@ -662,7 +715,8 @@ const ActivityParticipationPage = () => {
                     </div>
                   ) : (
                     <p className="text-center text-gray-500">
-                      {translations.no_missed_events || "No missed events found"}
+                      {translations.no_missed_events ||
+                        "No missed events found"}
                     </p>
                   )}
                 </TabsContent>
@@ -671,7 +725,11 @@ const ActivityParticipationPage = () => {
           </Card>
 
           <div className="text-center">
-            <Button className="bg-[#1CAC78] hover:bg-[#158f63] text-white" onClick={handleRedirect} variant="sm">
+            <Button
+              className="bg-[#1CAC78] hover:bg-[#158f63] text-white"
+              onClick={handleRedirect}
+              variant="sm"
+            >
               {translations.find_more_activities || "Find More Activities!"}
             </Button>
           </div>
@@ -686,10 +744,12 @@ const ActivityParticipationPage = () => {
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-center">
-              {expandedQRTitle || translations.event || "Event"} {translations.qr_code || "QR Code"}
+              {expandedQRTitle || translations.event || "Event"}{" "}
+              {translations.qr_code || "QR Code"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              {translations.present_qr_code || "Present this QR code at the event check-in"}
+              {translations.present_qr_code ||
+                "Present this QR code at the event check-in"}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
@@ -712,58 +772,81 @@ const ActivityParticipationPage = () => {
           </div>
 
           <AlertDialogFooter className="flex-col space-y-2">
-            <AlertDialogAction className="w-full">{translations.close || "Close"}</AlertDialogAction>
+            <AlertDialogAction className="w-full">
+              {translations.close || "Close"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Certificate Alert Dialog */}
-      <AlertDialog
-        open={showCertificate}
-        onOpenChange={closeCertificate}
-      >
+      <AlertDialog open={showCertificate} onOpenChange={closeCertificate}>
         <AlertDialogContent className="max-w-4xl p-2">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-center">
-              {translations.certificate_of_appreciation || "Certificate of Appreciation"}
+              {translations.certificate_of_appreciation ||
+                "Certificate of Appreciation"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-center">
-              {translations.thank_you_participation || "Thank you for your participation!"}
+              {translations.thank_you_participation ||
+                "Thank you for your participation!"}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
           {certificateData && (
-            <div id="certificate-container" className="p-6 border-4 border-[#1CAC78] rounded-lg bg-white">
+            <div
+              id="certificate-container"
+              className="p-6 border-4 border-[#1CAC78] rounded-lg bg-white"
+            >
               <div className="text-center mb-8">
-                <h1 className="text-4xl font-bold text-[#1CAC78]">{translations.certificate_of_appreciation || "Certificate of Appreciation"}</h1>
+                <h1 className="text-4xl font-bold text-[#1CAC78]">
+                  {translations.certificate_of_appreciation ||
+                    "Certificate of Appreciation"}
+                </h1>
                 <div className="mt-2 text-gray-600">
                   {translations.this_is_to_certify || "This is to certify that"}
                 </div>
-                <h2 className="text-3xl font-bold mt-4 text-gray-800">{certificateData.userName}</h2>
-                <p className="text-gray-600 mt-1">{certificateData.userEmail}</p>
-                
+                <h2 className="text-3xl font-bold mt-4 text-gray-800">
+                  {certificateData.userName}
+                </h2>
+                <p className="text-gray-600 mt-1">
+                  {certificateData.userEmail}
+                </p>
+
                 <div className="my-8 text-gray-700 text-lg">
-                  <p>{translations.has_participated || "has successfully participated in"}</p>
-                  <h3 className="text-2xl font-bold mt-2 text-gray-800">{certificateData.eventName}</h3>
+                  <p>
+                    {translations.has_participated ||
+                      "has successfully participated in"}
+                  </p>
+                  <h3 className="text-2xl font-bold mt-2 text-gray-800">
+                    {certificateData.eventName}
+                  </h3>
                   <p className="mt-2">
-                    {translations.as_a || "as a"} <span className="font-semibold">{certificateData.role}</span>
+                    {translations.as_a || "as a"}{" "}
+                    <span className="font-semibold">
+                      {certificateData.role}
+                    </span>
                   </p>
                   <p className="mt-2">
-                    {translations.on || "on"} {certificateData.eventDate} {translations.at || "at"} {certificateData.eventLocation}
+                    {translations.on || "on"} {certificateData.eventDate}{" "}
+                    {translations.at || "at"} {certificateData.eventLocation}
                   </p>
                 </div>
-                
+
                 <div className="flex justify-center mt-10">
                   <div className="text-center">
-                    <div className="h-12 border-b border-gray-400 w-48 flex justify-center items-end">
-                      
-                    </div>
-                    <p className="mt-2 text-gray-600">{translations.for || "For"} {certificateData.ngoName}</p>
+                    <div className="h-12 border-b border-gray-400 w-48 flex justify-center items-end"></div>
+                    <p className="mt-2 text-gray-600">
+                      {translations.for || "For"} {certificateData.ngoName}
+                    </p>
                   </div>
                 </div>
-                
+
                 <div className="mt-8 text-gray-500 text-sm">
-                  <p>{translations.issued_on || "Issued on"}: {certificateData.issuedDate}</p>
+                  <p>
+                    {translations.issued_on || "Issued on"}:{" "}
+                    {certificateData.issuedDate}
+                  </p>
                 </div>
               </div>
             </div>
@@ -777,15 +860,17 @@ const ActivityParticipationPage = () => {
               <Download className="w-4 h-4 mr-2" />
               {translations.download_certificate || "Download Certificate"}
             </Button>
-            <AlertDialogAction className="w-full h-10">{translations.close || "Close"}</AlertDialogAction>
+            <AlertDialogAction className="w-full h-10">
+              {translations.close || "Close"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Translation Modal */}
-      <TranslationModal 
-        isOpen={showTranslationModal} 
-        onClose={() => setShowTranslationModal(false)} 
+      <TranslationModal
+        isOpen={showTranslationModal}
+        onClose={() => setShowTranslationModal(false)}
       />
     </div>
   );
