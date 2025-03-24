@@ -275,11 +275,12 @@ export default function SearchActivitiesPage() {
   const getNgoName = (ngoId) => {
     if (!ngoId) return translations.unknown_ngo || "Unknown NGO";
     const ngoData = ngoDataMap[ngoId];
-    return ngoData?.ngoName || (translations.unknown_ngo || "Unknown NGO");
+    return ngoData?.ngoName || translations.unknown_ngo || "Unknown NGO";
   };
 
   const inputProps = {
-    placeholder: translations.search_placeholder || "Search NGOs, events, or causes...",
+    placeholder:
+      translations.search_placeholder || "Search NGOs, events, or causes...",
     value: searchQuery,
     onChange: (_, { newValue }) => setSearchQuery(newValue),
     className: "flex-grow p-2 border rounded-md w-full",
@@ -293,8 +294,10 @@ export default function SearchActivitiesPage() {
       className="container mx-auto p-4 space-y-8"
     >
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">{translations.search_activities || "Search Activities"}</h1>
-        <Button 
+        <h1 className="text-3xl font-bold">
+          {translations.search_activities || "Search Activities"}
+        </h1>
+        <Button
           onClick={() => setShowTranslationModal(true)}
           className="flex items-center gap-2 bg-[#1CAC78] hover:bg-[#158f63]"
         >
@@ -305,7 +308,9 @@ export default function SearchActivitiesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{translations.search_and_filters || "Search and Filters"}</CardTitle>
+          <CardTitle>
+            {translations.search_and_filters || "Search and Filters"}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center space-x-2 relative">
@@ -343,7 +348,9 @@ export default function SearchActivitiesPage() {
           {recentSearches.length > 0 && (
             <div className="mt-2">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">{translations.recent_searches || "Recent Searches"}</span>
+                <span className="text-sm font-medium">
+                  {translations.recent_searches || "Recent Searches"}
+                </span>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -375,12 +382,16 @@ export default function SearchActivitiesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{translations.all_upcoming_activities || "All Upcoming Activities"}</CardTitle>
+          <CardTitle>
+            {translations.all_upcoming_activities || "All Upcoming Activities"}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <div className="text-center py-8">
-              <p>{translations.loading_activities || "Loading activities..."}</p>
+              <p>
+                {translations.loading_activities || "Loading activities..."}
+              </p>
             </div>
           ) : activities.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -390,7 +401,9 @@ export default function SearchActivitiesPage() {
                   className="border rounded-lg p-4 hover:shadow-md transition-shadow"
                 >
                   <h3 className="font-semibold">
-                    {activity.eventName || (translations.unnamed_activity || "Unnamed Activity")}
+                    {activity.eventName ||
+                      translations.unnamed_activity ||
+                      "Unnamed Activity"}
                   </h3>
                   <p className="text-sm text-gray-500">
                     {getNgoName(activity.ngoId)}
@@ -402,7 +415,11 @@ export default function SearchActivitiesPage() {
                     </div>
                     <div className="flex items-center">
                       <MapPin className="w-4 h-4 mr-1" />
-                      <span>{activity.location?.address || (translations.location_tbd || "Location TBD")}</span>
+                      <span>
+                        {activity.location?.address ||
+                          translations.location_tbd ||
+                          "Location TBD"}
+                      </span>
                     </div>
                   </div>
                   {activity.shortDescription && (
@@ -424,14 +441,16 @@ export default function SearchActivitiesPage() {
                       className="bg-[#1CAC78] hover:bg-[#158f63] p-2 rounded-lg text-white"
                       href={`/dashboard/user/activities/${activity.id}`}
                     >
-                      {translations.view_activity || "View Activity"} <EyeIcon className="inline ml-1" />
+                      {translations.view_activity || "View Activity"}{" "}
+                      <EyeIcon className="inline ml-1" />
                     </Link>
                     <Link
                       size="sm"
                       className="bg-[#1CAC78] hover:bg-[#158f63] p-2 rounded-lg text-white"
                       href={`/opt-in-participant/${activity.ngoId}/${activity.id}`}
                     >
-                      {translations.register || "Register"} <ArrowRightIcon className="inline ml-1" />
+                      {translations.register || "Register"}{" "}
+                      <ArrowRightIcon className="inline ml-1" />
                     </Link>
                   </div>
                 </div>
@@ -439,16 +458,19 @@ export default function SearchActivitiesPage() {
             </div>
           ) : (
             <div className="text-center py-8">
-              <p>{translations.no_activities_found || "No activities available at the moment. Check back later!"}</p>
+              <p>
+                {translations.no_activities_found ||
+                  "No activities available at the moment. Check back later!"}
+              </p>
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* Translation Modal */}
-      <TranslationModal 
-        isOpen={showTranslationModal} 
-        onClose={() => setShowTranslationModal(false)} 
+      <TranslationModal
+        isOpen={showTranslationModal}
+        onClose={() => setShowTranslationModal(false)}
       />
     </motion.div>
   );
