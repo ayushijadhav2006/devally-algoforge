@@ -62,6 +62,7 @@ export function CryptoDonationTable({
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [cryptoDonations, setCryptoDonations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [ngoContractAddress, setNgoContractAddress] = useState(null);
 
   // Get user data and ngoId on component mount
   useEffect(() => {
@@ -82,6 +83,7 @@ export function CryptoDonationTable({
         // Fetch NGO profile for additional data
         let ngoProfile = propNgoProfile; // Use prop if available
         let ngoIdToUse = propUserId; // Use prop if available
+        console.log("NGOPROFILE", ngoProfile);
 
         if (!ngoProfile) {
           if (data.type === "ngo") {
@@ -90,6 +92,7 @@ export function CryptoDonationTable({
               const ngoDoc = await getDoc(doc(db, "ngo", ngoIdToUse));
               if (ngoDoc.exists()) {
                 ngoProfile = ngoDoc.data();
+                console.log("NGOPROFILE", ngoProfile);
                 setUserData({ ...data, ...ngoProfile });
               } else {
                 setUserData(data);
@@ -139,7 +142,10 @@ export function CryptoDonationTable({
           const path = doc.ref.path;
           if (path.includes(`donations/${ngoId}/${currentYear}`)) {
             const data = doc.data();
-            console.log("Crypto donation data:", data); // Debug log
+            console.log("Crypto donation data:", data);
+            if (!ngoContractAddress) {
+              setNgoContractAddress(data.ngoContract);
+            }
             console.log(
               "Crypto amount:",
               data.cryptoAmount,
@@ -239,7 +245,10 @@ export function CryptoDonationTable({
         </div>
         <div className="mt-4 md:mt-0 flex items-center gap-2">
           {/* <CryptoDonation /> */}
-          <CryptoPayoutButton />
+          {ngoContractAddress && (
+            <CryptoPayoutButton ngoContractAddress={ngoContractAddress} />
+          )}
+          {console.log("NGO CONTRACT ADDRESS", ngoContractAddress)}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
